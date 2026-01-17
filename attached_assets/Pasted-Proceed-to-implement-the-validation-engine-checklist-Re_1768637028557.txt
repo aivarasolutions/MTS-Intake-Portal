@@ -1,0 +1,71 @@
+Proceed to implement the validation engine + checklist + Review & Submit flow.
+
+Core goal:
+- Clients must NOT be able to submit an intake unless required form fields AND required documents are complete.
+- System must compute missing items and show them clearly to client and preparer.
+
+Implement:
+1) A server-side validation module:
+   - validateIntake(intakeId) -> { valid: boolean, missingFields: [], missingDocs: [], warnings: [] }
+   - Must validate across:
+     taxpayer_info, filing_status, photo_ids, bank_accounts, dependents, childcare_providers, estimated_payments, files, and intakes.status
+
+2) Checklist persistence:
+   - Upsert checklist_items rows for missing fields/docs:
+     item_type='missing_field' and 'missing_document'
+   - Mark items resolved automatically when issue is fixed.
+   - Allow preparer/admin to add:
+     item_type='clarification_needed' and 'custom'
+   - Include created_by_user_id and resolved_at tracking.
+
+3) Validation rules (must enforce):
+   Identity / Page 1:
+   - taxpayer first/last name required
+   - taxpayer DOB required
+   - taxpayer SSN valid format and encrypted present
+   - if taxpayer_has_ip_pin = true then encrypted pin present and 6 digits
+   - at least one phone present
+   - address city/state/zip required
+   - filing_status required
+   - spouse required when filing_status is 'married' or 'married_filing_separately' (must have spouse name + spouse ssn encrypted + spouse dob)
+   - widowed: if widowed_spouse_death_date required when applicable
+   - MFS: mfs_lived_apart required
+
+   Photo IDs:
+   - taxpayer photo ID metadata must exist
+   - spouse photo ID metadata required if spouse exists
+   - document requirement:
+     - taxpayer must have at least one file in category photo_id_front and one in photo_id_back
+     - spouse must also have front/back if spouse exists
+
+   Bank accounts (if any record exists):
+   - routing number 9 digits and valid checksum
+   - account number 4-50 digits
+   - at least one of use_for_deposits/use_for_withdrawals true per bank record
+
+   Page 2:
+   - dependents SSNs unique within intake and must not match taxpayer/spouse
+   - if any dependent childcare_expenses > 0 then require at least 1 childcare_providers row
+
+   Tax documents:
+   - require at least one tax doc file across categories:
+     w2 OR any 1099_* OR 1098 OR other
+
+4) Client Review & Submit screen:
+   - Show computed missing fields and missing documents grouped and human readable.
+   - Block submit button until valid=true.
+   - Submit action:
+     - sets intakes.status='submitted'
+     - sets submitted_at
+     - inserts status_history row
+     - creates audit_logs entry
+
+5) Preparer/Admin intake view enhancements:
+   - Display checklist with filters (missing fields, missing docs, clarification, custom)
+   - Allow resolving/adding items
+   - Button to "Recalculate Missing Items" (calls validateIntake + re-upserts checklist)
+
+Do NOT implement packet export/ZIP yet.
+Do NOT publish.
+
+Confirm when Review & Submit flow is complete and tested.
