@@ -1,0 +1,33 @@
+Implement the Postgres schema EXACTLY as defined in this canonical mapping reference. Do not rename columns. Create Prisma models that match table/column names 1:1, including enums as string fields with validation.
+
+Canonical tables and enums to implement (must match):
+- users (role: 'client','preparer','admin')
+- sessions
+- intakes (status: 'draft','submitted','in_review','ready_for_drake','filed','accepted','rejected')
+- taxpayer_info (includes encrypted BYTEA fields)
+- filing_status (filing_status values: 'single','married','widowed','married_filing_separately','head_of_household')
+- photo_ids (person_type: 'taxpayer','spouse'; id_type: 'drivers_license','state_id')
+- bank_accounts (account_type: 'checking','savings')
+- dependents
+- childcare_providers
+- estimated_payments (tax_authority: 'federal','resident_state','resident_city'; payment_period: 'overpayment_2024','q1','q2','q3','q4','additional')
+- files (file_category: 'photo_id_front','photo_id_back','w2','1099_int','1099_div','1099_misc','1099_nec','1099_r','1098','other'; includes checksum sha-256)
+- messages
+- checklist_items (item_type: 'missing_field','missing_document','clarification_needed','custom')
+- audit_logs (result: 'success','failure')
+- status_history
+- preparer_packet_requests (status: 'pending','processing','completed','failed')
+
+Use the provided database_schema.sql as the base source of truth, but ALSO apply this required patch:
+- Add taxpayer_info.appointment_scheduled_for VARCHAR(100) NULL (needed for TPINFO Page 1 Appointment Information)
+
+Encryption approach (MVP):
+- Store SSNs/IP PINs/ID numbers/routing/account numbers in BYTEA columns.
+- Implement a server-side crypto utility using AES-256-GCM with key from env (DATA_ENCRYPTION_KEY).
+- Provide encryptToBytea() and decryptFromBytea() helpers with tests.
+
+Deliverables:
+- prisma/schema.prisma
+- initial migration(s)
+- seed script that creates an admin and a preparer user (with hashed passwords) and demo intake.
+- README section for DB setup.
