@@ -1,0 +1,58 @@
+Proceed to implement Document Uploads (TPINFO Upload step) using the existing `files` table and strict RBAC.
+
+Scope:
+- Add a new wizard step called "Upload Documents" after the TPINFO Page 2 steps.
+- This step must support uploading:
+  - Photo ID (front + back) for taxpayer (required before submission)
+  - Photo ID (front + back) for spouse if spouse exists (required before submission)
+  - Tax documents: w2, 1099_int, 1099_div, 1099_misc, 1099_nec, 1099_r, 1098, other (at least one required before submission)
+
+Database mapping:
+- Use `files` table exactly with columns:
+  intake_id, uploaded_by_user_id, file_category, original_filename, stored_filename,
+  storage_key, file_size, mime_type, checksum, is_reviewed, created_at
+- File categories must be exactly:
+  'photo_id_front','photo_id_back','w2','1099_int','1099_div','1099_misc','1099_nec','1099_r','1098','other'
+
+Storage:
+- MVP local storage:
+  Save files in /uploads/<intake_id>/<stored_filename>
+  where stored_filename is UUID + original extension.
+  storage_key should store that relative path.
+- Compute SHA-256 checksum server-side on upload and store it in `files.checksum`.
+- Enforce allowed mime types: application/pdf, image/jpeg, image/png.
+- Enforce max size:
+  - IDs: 10MB each
+  - Tax docs: 25MB each
+
+RBAC & Security:
+- Clients can upload only to their own intake.
+- Secure download route:
+  - GET /api/files/[fileId]/download should stream the file only if:
+    - client owns the intake OR
+    - role is preparer/admin
+- Never expose arbitrary filesystem paths.
+
+UI:
+- Provide category tabs or grouped sections:
+  - Identification (Front/Back)
+  - W-2
+  - 1099s (all 1099_* categories)
+  - 1098
+  - Other
+- Show uploaded files list per category with:
+  filename, size, uploaded date, download link, delete button (client can delete their own files while intake is draft)
+- Prevent deletion after intake.status is 'submitted' unless role is preparer/admin.
+
+Preparer tools:
+- In admin intake detail page, show all files grouped by category.
+- Allow preparer/admin to toggle is_reviewed.
+
+Audit logs:
+- Log uploads, downloads, deletions, and review toggles into audit_logs.
+
+Do NOT implement packet export yet.
+Do NOT implement final submission validation yet (that will be next prompt).
+Do NOT publish.
+
+Confirm when Upload Documents step is complete and tested.
