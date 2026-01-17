@@ -194,9 +194,9 @@ function StepIndicator({ currentStep, steps, completedSteps }: { currentStep: nu
   );
 }
 
-function TaxpayerStep({ form, onSave, isSaving }: { form: any; onSave: () => void; isSaving: boolean }) {
+function TaxpayerStep({ form, onSave, isSaving, isReadOnly = false }: { form: any; onSave: () => void; isSaving: boolean; isReadOnly?: boolean }) {
   return (
-    <div className="space-y-6">
+    <fieldset disabled={isReadOnly} className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <FormField
           control={form.control}
@@ -326,19 +326,21 @@ function TaxpayerStep({ form, onSave, isSaving }: { form: any; onSave: () => voi
         />
       </div>
 
-      <div className="flex justify-end">
-        <Button type="button" variant="outline" onClick={onSave} disabled={isSaving} data-testid="button-save-taxpayer">
-          {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-          Save Progress
-        </Button>
-      </div>
-    </div>
+      {!isReadOnly && (
+        <div className="flex justify-end">
+          <Button type="button" variant="outline" onClick={onSave} disabled={isSaving} data-testid="button-save-taxpayer">
+            {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+            Save Progress
+          </Button>
+        </div>
+      )}
+    </fieldset>
   );
 }
 
-function SpouseStep({ form, onSave, isSaving }: { form: any; onSave: () => void; isSaving: boolean }) {
+function SpouseStep({ form, onSave, isSaving, isReadOnly = false }: { form: any; onSave: () => void; isSaving: boolean; isReadOnly?: boolean }) {
   return (
-    <div className="space-y-6">
+    <fieldset disabled={isReadOnly} className="space-y-6">
       <p className="text-sm text-muted-foreground">
         If you are filing jointly with a spouse, please provide their information below. Leave blank if not applicable.
       </p>
@@ -472,19 +474,21 @@ function SpouseStep({ form, onSave, isSaving }: { form: any; onSave: () => void;
         />
       </div>
 
-      <div className="flex justify-end">
-        <Button type="button" variant="outline" onClick={onSave} disabled={isSaving} data-testid="button-save-spouse">
-          {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-          Save Progress
-        </Button>
-      </div>
-    </div>
+      {!isReadOnly && (
+        <div className="flex justify-end">
+          <Button type="button" variant="outline" onClick={onSave} disabled={isSaving} data-testid="button-save-spouse">
+            {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+            Save Progress
+          </Button>
+        </div>
+      )}
+    </fieldset>
   );
 }
 
-function AddressStep({ form, onSave, isSaving }: { form: any; onSave: () => void; isSaving: boolean }) {
+function AddressStep({ form, onSave, isSaving, isReadOnly = false }: { form: any; onSave: () => void; isSaving: boolean; isReadOnly?: boolean }) {
   return (
-    <div className="space-y-6">
+    <fieldset disabled={isReadOnly} className="space-y-6">
       <FormField
         control={form.control}
         name="address_street"
@@ -566,19 +570,21 @@ function AddressStep({ form, onSave, isSaving }: { form: any; onSave: () => void
         />
       </div>
 
-      <div className="flex justify-end">
-        <Button type="button" variant="outline" onClick={onSave} disabled={isSaving} data-testid="button-save-address">
-          {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-          Save Progress
-        </Button>
-      </div>
-    </div>
+      {!isReadOnly && (
+        <div className="flex justify-end">
+          <Button type="button" variant="outline" onClick={onSave} disabled={isSaving} data-testid="button-save-address">
+            {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+            Save Progress
+          </Button>
+        </div>
+      )}
+    </fieldset>
   );
 }
 
-function ResidencyStep({ form, onSave, isSaving }: { form: any; onSave: () => void; isSaving: boolean }) {
+function ResidencyStep({ form, onSave, isSaving, isReadOnly = false }: { form: any; onSave: () => void; isSaving: boolean; isReadOnly?: boolean }) {
   return (
-    <div className="space-y-6">
+    <fieldset disabled={isReadOnly} className="space-y-6">
       <p className="text-sm text-muted-foreground">
         This information helps determine state and local tax obligations. Fill in what applies to you.
       </p>
@@ -653,24 +659,28 @@ function ResidencyStep({ form, onSave, isSaving }: { form: any; onSave: () => vo
         />
       </div>
 
-      <div className="flex justify-end">
-        <Button type="button" variant="outline" onClick={onSave} disabled={isSaving} data-testid="button-save-residency">
-          {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-          Save Progress
-        </Button>
-      </div>
-    </div>
+      {!isReadOnly && (
+        <div className="flex justify-end">
+          <Button type="button" variant="outline" onClick={onSave} disabled={isSaving} data-testid="button-save-residency">
+            {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+            Save Progress
+          </Button>
+        </div>
+      )}
+    </fieldset>
   );
 }
 
 function DependentsStep({ 
   intakeId, 
   dependents, 
-  onRefresh 
+  onRefresh,
+  isReadOnly = false
 }: { 
   intakeId: string; 
   dependents: any[]; 
   onRefresh: () => void;
+  isReadOnly?: boolean;
 }) {
   const { toast } = useToast();
   const [isAdding, setIsAdding] = useState(false);
@@ -872,12 +882,12 @@ function DependentsStep({
             </div>
           </div>
         </Card>
-      ) : (
+      ) : !isReadOnly ? (
         <Button type="button" variant="outline" onClick={() => setIsAdding(true)} className="w-full" data-testid="button-add-dependent">
           <Plus className="mr-2 h-4 w-4" />
           Add Dependent
         </Button>
-      )}
+      ) : null}
     </div>
   );
 }
@@ -885,11 +895,13 @@ function DependentsStep({
 function ChildcareStep({ 
   intakeId, 
   providers, 
-  onRefresh 
+  onRefresh,
+  isReadOnly = false
 }: { 
   intakeId: string; 
   providers: any[]; 
   onRefresh: () => void;
+  isReadOnly?: boolean;
 }) {
   const { toast } = useToast();
   const [isAdding, setIsAdding] = useState(false);
@@ -1081,12 +1093,12 @@ function ChildcareStep({
             </div>
           </div>
         </Card>
-      ) : (
+      ) : !isReadOnly ? (
         <Button type="button" variant="outline" onClick={() => setIsAdding(true)} className="w-full" data-testid="button-add-provider">
           <Plus className="mr-2 h-4 w-4" />
           Add Childcare Provider
         </Button>
-      )}
+      ) : null}
     </div>
   );
 }
@@ -1094,11 +1106,13 @@ function ChildcareStep({
 function EstimatedPaymentsStep({ 
   intakeId, 
   payments, 
-  onRefresh 
+  onRefresh,
+  isReadOnly = false
 }: { 
   intakeId: string; 
   payments: any[]; 
   onRefresh: () => void;
+  isReadOnly?: boolean;
 }) {
   const { toast } = useToast();
   const [isAdding, setIsAdding] = useState(false);
@@ -1261,12 +1275,12 @@ function EstimatedPaymentsStep({
             </div>
           </div>
         </Card>
-      ) : (
+      ) : !isReadOnly ? (
         <Button type="button" variant="outline" onClick={() => setIsAdding(true)} className="w-full" data-testid="button-add-payment">
           <Plus className="mr-2 h-4 w-4" />
           Add Estimated Payment
         </Button>
-      )}
+      ) : null}
     </div>
   );
 }
@@ -1303,13 +1317,15 @@ function UploadDocumentsStep({
   files,
   hasSpouse,
   intakeStatus,
-  onRefresh 
+  onRefresh,
+  isReadOnly = false
 }: { 
   intakeId: string; 
   files: any[];
   hasSpouse: boolean;
   intakeStatus: string;
   onRefresh: () => void;
+  isReadOnly?: boolean;
 }) {
   const { toast } = useToast();
   const [uploading, setUploading] = useState<string | null>(null);
@@ -1522,11 +1538,13 @@ interface ValidationResult {
 function ReviewSubmitStep({ 
   intakeId, 
   intakeStatus,
-  onRefresh 
+  onRefresh,
+  isReadOnly = false
 }: { 
   intakeId: string; 
   intakeStatus: string;
   onRefresh: () => void;
+  isReadOnly?: boolean;
 }) {
   const { toast } = useToast();
   const [, navigate] = useLocation();
@@ -1980,6 +1998,7 @@ export default function IntakeWizard() {
   }
 
   const currentStepInfo = STEPS[currentStep - 1];
+  const isReadOnly = intake.status !== "draft";
 
   return (
     <ClientLayout>
@@ -1992,11 +2011,21 @@ export default function IntakeWizard() {
             </Button>
           </div>
 
+          {isReadOnly && (
+            <Alert className="mb-6 border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950">
+              <CheckCircle2 className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+              <AlertDescription className="text-blue-800 dark:text-blue-200">
+                <strong>Submission Received</strong> - Your intake has been submitted and is now being reviewed by our team. 
+                You can view your information below but cannot make changes. If you need to update anything, please contact our office.
+              </AlertDescription>
+            </Alert>
+          )}
+
           <Card>
             <CardHeader>
               <CardTitle>Tax Year {intake.tax_year} - {currentStepInfo.title}</CardTitle>
               <CardDescription>
-                {currentStepInfo.description}
+                {isReadOnly ? "Viewing submitted information (read-only)" : currentStepInfo.description}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -2011,6 +2040,7 @@ export default function IntakeWizard() {
                         <Select 
                           value={intake?.filing_status?.filing_status || ""} 
                           onValueChange={(val) => saveFilingStatusMutation.mutate(val)}
+                          disabled={isReadOnly}
                         >
                           <SelectTrigger data-testid="select-filing-status">
                             <SelectValue placeholder="Select filing status" />
@@ -2024,23 +2054,24 @@ export default function IntakeWizard() {
                           </SelectContent>
                         </Select>
                       </div>
-                      <TaxpayerStep form={form} onSave={handleSave} isSaving={saveTaxpayerInfoMutation.isPending} />
+                      <TaxpayerStep form={form} onSave={handleSave} isSaving={saveTaxpayerInfoMutation.isPending} isReadOnly={isReadOnly} />
                     </div>
                   )}
                   {currentStep === 2 && (
-                    <SpouseStep form={form} onSave={handleSave} isSaving={saveTaxpayerInfoMutation.isPending} />
+                    <SpouseStep form={form} onSave={handleSave} isSaving={saveTaxpayerInfoMutation.isPending} isReadOnly={isReadOnly} />
                   )}
                   {currentStep === 3 && (
-                    <AddressStep form={form} onSave={handleSave} isSaving={saveTaxpayerInfoMutation.isPending} />
+                    <AddressStep form={form} onSave={handleSave} isSaving={saveTaxpayerInfoMutation.isPending} isReadOnly={isReadOnly} />
                   )}
                   {currentStep === 4 && (
-                    <ResidencyStep form={form} onSave={handleSave} isSaving={saveTaxpayerInfoMutation.isPending} />
+                    <ResidencyStep form={form} onSave={handleSave} isSaving={saveTaxpayerInfoMutation.isPending} isReadOnly={isReadOnly} />
                   )}
                   {currentStep === 5 && (
                     <DependentsStep 
                       intakeId={id!} 
                       dependents={intake.dependents || []} 
                       onRefresh={handleRefreshIntake}
+                      isReadOnly={isReadOnly}
                     />
                   )}
                   {currentStep === 6 && (
@@ -2048,6 +2079,7 @@ export default function IntakeWizard() {
                       intakeId={id!} 
                       providers={intake.childcare_providers || []} 
                       onRefresh={handleRefreshIntake}
+                      isReadOnly={isReadOnly}
                     />
                   )}
                   {currentStep === 7 && (
@@ -2055,6 +2087,7 @@ export default function IntakeWizard() {
                       intakeId={id!} 
                       payments={intake.estimated_payments || []} 
                       onRefresh={handleRefreshIntake}
+                      isReadOnly={isReadOnly}
                     />
                   )}
                   {currentStep === 8 && (
@@ -2064,6 +2097,7 @@ export default function IntakeWizard() {
                       hasSpouse={!!(intake.taxpayer_info?.spouse_first_name)}
                       intakeStatus={intake.status}
                       onRefresh={handleRefreshIntake}
+                      isReadOnly={isReadOnly}
                     />
                   )}
                   {currentStep === 9 && (
@@ -2071,6 +2105,7 @@ export default function IntakeWizard() {
                       intakeId={id!} 
                       intakeStatus={intake.status}
                       onRefresh={handleRefreshIntake}
+                      isReadOnly={isReadOnly}
                     />
                   )}
 
@@ -2087,9 +2122,18 @@ export default function IntakeWizard() {
                     </Button>
 
                     {currentStep < STEPS.length ? (
-                      <Button type="button" onClick={handleNext} data-testid="button-next-step">
-                        Next
+                      <Button 
+                        type="button" 
+                        onClick={isReadOnly ? () => setCurrentStep(currentStep + 1) : handleNext} 
+                        data-testid="button-next-step"
+                      >
+                        {isReadOnly ? "View Next" : "Next"}
                         <ChevronRight className="ml-2 h-4 w-4" />
+                      </Button>
+                    ) : isReadOnly ? (
+                      <Button type="button" onClick={() => navigate("/dashboard/client")} data-testid="button-back-dashboard">
+                        <Check className="mr-2 h-4 w-4" />
+                        Back to Dashboard
                       </Button>
                     ) : (
                       <Button type="button" onClick={handleComplete} data-testid="button-complete">

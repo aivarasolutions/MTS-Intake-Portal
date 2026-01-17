@@ -146,7 +146,15 @@ export default function ClientDashboard() {
                 <div>
                   <h2 className="text-xl font-semibold mb-1">Tax Intake Progress</h2>
                   <p className="text-sm text-muted-foreground">
-                    {currentIntake ? "Continue your intake form" : "Start your intake form to get started"}
+                    {currentIntake?.status === "submitted" 
+                      ? "Your intake has been submitted and is under review"
+                      : currentIntake?.status === "in_review"
+                      ? "Your intake is being reviewed by our team"
+                      : currentIntake?.status === "filed" || currentIntake?.status === "accepted"
+                      ? "Your return has been filed"
+                      : currentIntake 
+                      ? "Continue your intake form" 
+                      : "Start your intake form to get started"}
                   </p>
                 </div>
                 <div className="flex items-center gap-4">
@@ -160,7 +168,7 @@ export default function ClientDashboard() {
                     data-testid="button-continue-intake"
                   >
                     {createIntakeMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    {currentIntake ? "Continue" : "Start Intake"}
+                    {currentIntake?.status !== "draft" ? "View Submission" : currentIntake ? "Continue" : "Start Intake"}
                   </Button>
                 </div>
               </div>
