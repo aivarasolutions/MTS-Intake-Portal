@@ -3,7 +3,8 @@ import { useParams, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { 
   Loader2, ChevronLeft, FileText, Download, Eye, CheckCircle2, 
-  User, Calendar, Mail, Phone, MapPin, Clock, FileCheck
+  User, Calendar, Mail, Phone, MapPin, Clock, FileCheck, AlertTriangle, 
+  RefreshCw, Plus, Check, X, XCircle, ClipboardList, MessageSquare, Settings
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,9 +12,31 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { AdminLayout } from "@/components/layouts/admin-layout";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+
+interface ChecklistItem {
+  id: string;
+  intake_id: string;
+  item_type: string;
+  field_name: string | null;
+  description: string;
+  is_resolved: boolean;
+  resolved_at: string | null;
+  created_by_user_id: string | null;
+  resolved_by_user_id: string | null;
+  created_at: string;
+}
+
+const CHECKLIST_TYPE_CONFIG: Record<string, { label: string; icon: any; color: string }> = {
+  missing_field: { label: "Missing Field", icon: AlertTriangle, color: "text-amber-500" },
+  missing_document: { label: "Missing Document", icon: FileText, color: "text-red-500" },
+  clarification_needed: { label: "Clarification Needed", icon: MessageSquare, color: "text-blue-500" },
+  custom: { label: "Custom", icon: Settings, color: "text-purple-500" },
+};
 
 const FILE_CATEGORY_LABELS: Record<string, string> = {
   photo_id_front: "Photo ID (Front)",
@@ -53,9 +76,23 @@ export default function AdminIntakeDetail() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("identification");
+  const [checklistFilter, setChecklistFilter] = useState<string>("all");
+  const [showAddItem, setShowAddItem] = useState(false);
+  const [newItemType, setNewItemType] = useState("clarification_needed");
+  const [newItemDescription, setNewItemDescription] = useState("");
 
-  const { data: intake, isLoading } = useQuery<any>({
+  const { data: intake, isLoading, refetch: refetchIntake } = useQuery<any>({
     queryKey: ["/api/intakes", id],
+    enabled: !!id,
+  });
+
+  const { data: checklistItems, refetch: refetchChecklist } = useQuery<ChecklistItem[]>({
+    queryKey: ["/api/intakes", id, "checklist"],
+    queryFn: async () => {
+      const response = await fetch(`/api/intakes/${id}/checklist`);
+      if (!response.ok) throw new Error("Failed to fetch checklist");
+      return response.json();
+    },
     enabled: !!id,
   });
 
@@ -69,6 +106,60 @@ export default function AdminIntakeDetail() {
     },
     onError: (error: any) => {
       toast({ title: "Error", description: error.message || "Failed to update review status", variant: "destructive" });
+    },
+  });
+
+  const recalculateMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", `/api/intakes/${id}/recalculate-checklist`, {});
+    },
+    onSuccess: () => {
+      refetchChecklist();
+      toast({ title: "Checklist Updated", description: "Missing items have been recalculated." });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to recalculate", variant: "destructive" });
+    },
+  });
+
+  const addItemMutation = useMutation({
+    mutationFn: async ({ item_type, description }: { item_type: string; description: string }) => {
+      return apiRequest("POST", `/api/intakes/${id}/checklist`, { item_type, description });
+    },
+    onSuccess: () => {
+      refetchChecklist();
+      setShowAddItem(false);
+      setNewItemDescription("");
+      toast({ title: "Item Added", description: "Checklist item has been added." });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to add item", variant: "destructive" });
+    },
+  });
+
+  const resolveItemMutation = useMutation({
+    mutationFn: async (itemId: string) => {
+      return apiRequest("PATCH", `/api/checklist/${itemId}/resolve`, {});
+    },
+    onSuccess: () => {
+      refetchChecklist();
+      toast({ title: "Item Resolved", description: "Checklist item marked as resolved." });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to resolve item", variant: "destructive" });
+    },
+  });
+
+  const deleteItemMutation = useMutation({
+    mutationFn: async (itemId: string) => {
+      return apiRequest("DELETE", `/api/checklist/${itemId}`, {});
+    },
+    onSuccess: () => {
+      refetchChecklist();
+      toast({ title: "Item Deleted", description: "Checklist item has been removed." });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to delete item", variant: "destructive" });
     },
   });
 
@@ -337,6 +428,189 @@ export default function AdminIntakeDetail() {
                   <div className="text-2xl font-semibold">{intake.estimated_payments?.length || 0}</div>
                   <div className="text-sm text-muted-foreground">Est. Payments</div>
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between gap-4 flex-wrap">
+                <div>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <ClipboardList className="h-5 w-5" />
+                    Checklist
+                  </CardTitle>
+                  <CardDescription>
+                    Track missing information and documents
+                  </CardDescription>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => recalculateMutation.mutate()}
+                    disabled={recalculateMutation.isPending}
+                    data-testid="button-recalculate"
+                  >
+                    {recalculateMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                    ) : (
+                      <RefreshCw className="h-4 w-4 mr-1" />
+                    )}
+                    Recalculate
+                  </Button>
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={() => setShowAddItem(true)}
+                    data-testid="button-add-checklist-item"
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add Item
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center gap-2 flex-wrap">
+                <Label className="text-sm">Filter:</Label>
+                <Select value={checklistFilter} onValueChange={setChecklistFilter}>
+                  <SelectTrigger className="w-[180px]" data-testid="select-checklist-filter">
+                    <SelectValue placeholder="Filter by type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Items</SelectItem>
+                    <SelectItem value="unresolved">Unresolved Only</SelectItem>
+                    <SelectItem value="missing_field">Missing Fields</SelectItem>
+                    <SelectItem value="missing_document">Missing Documents</SelectItem>
+                    <SelectItem value="clarification_needed">Clarification Needed</SelectItem>
+                    <SelectItem value="custom">Custom</SelectItem>
+                  </SelectContent>
+                </Select>
+                <div className="flex-1" />
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Badge variant="secondary">
+                    {checklistItems?.filter(i => !i.is_resolved).length || 0} unresolved
+                  </Badge>
+                  <Badge variant="outline">
+                    {checklistItems?.filter(i => i.is_resolved).length || 0} resolved
+                  </Badge>
+                </div>
+              </div>
+
+              {showAddItem && (
+                <div className="p-4 border rounded-lg bg-muted/50 space-y-3">
+                  <h4 className="font-medium text-sm">Add New Checklist Item</h4>
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <Select value={newItemType} onValueChange={setNewItemType}>
+                      <SelectTrigger className="w-full sm:w-[200px]" data-testid="select-new-item-type">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="clarification_needed">Clarification Needed</SelectItem>
+                        <SelectItem value="custom">Custom</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      placeholder="Description..."
+                      value={newItemDescription}
+                      onChange={(e) => setNewItemDescription(e.target.value)}
+                      className="flex-1"
+                      data-testid="input-new-item-description"
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        onClick={() => addItemMutation.mutate({ item_type: newItemType, description: newItemDescription })}
+                        disabled={!newItemDescription.trim() || addItemMutation.isPending}
+                        data-testid="button-save-checklist-item"
+                      >
+                        {addItemMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => { setShowAddItem(false); setNewItemDescription(""); }}
+                        data-testid="button-cancel-add-item"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-2">
+                {checklistItems && checklistItems.length > 0 ? (
+                  checklistItems
+                    .filter(item => {
+                      if (checklistFilter === "all") return true;
+                      if (checklistFilter === "unresolved") return !item.is_resolved;
+                      return item.item_type === checklistFilter;
+                    })
+                    .map((item) => {
+                      const config = CHECKLIST_TYPE_CONFIG[item.item_type] || { 
+                        label: item.item_type, 
+                        icon: AlertTriangle, 
+                        color: "text-muted-foreground" 
+                      };
+                      const Icon = config.icon;
+                      
+                      return (
+                        <div 
+                          key={item.id} 
+                          className={`flex items-center gap-3 p-3 rounded-lg border ${item.is_resolved ? 'bg-muted/30 opacity-60' : 'bg-card'}`}
+                          data-testid={`checklist-item-${item.id}`}
+                        >
+                          <Icon className={`h-4 w-4 flex-shrink-0 ${config.color}`} />
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-sm ${item.is_resolved ? 'line-through' : ''}`}>
+                              {item.description}
+                            </p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <Badge variant="outline" className="text-xs">
+                                {config.label}
+                              </Badge>
+                              {item.is_resolved && item.resolved_at && (
+                                <span className="text-xs text-muted-foreground">
+                                  Resolved {new Date(item.resolved_at).toLocaleDateString()}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            {!item.is_resolved && (
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={() => resolveItemMutation.mutate(item.id)}
+                                disabled={resolveItemMutation.isPending}
+                                data-testid={`button-resolve-${item.id}`}
+                              >
+                                <CheckCircle2 className="h-4 w-4 text-green-600" />
+                              </Button>
+                            )}
+                            {(item.item_type === "clarification_needed" || item.item_type === "custom") && (
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={() => deleteItemMutation.mutate(item.id)}
+                                disabled={deleteItemMutation.isPending}
+                                data-testid={`button-delete-${item.id}`}
+                              >
+                                <X className="h-4 w-4 text-destructive" />
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })
+                ) : (
+                  <div className="py-8 text-center text-muted-foreground">
+                    <ClipboardList className="h-10 w-10 mx-auto mb-2 opacity-50" />
+                    <p>No checklist items. Click "Recalculate" to check for missing information.</p>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>

@@ -22,6 +22,7 @@ import {
   logFileDownload,
   logFileReviewToggled,
 } from "./audit";
+import { validateIntake, syncChecklistFromValidation } from "./validation";
 
 const ALLOWED_MIME_TYPES = ["application/pdf", "image/jpeg", "image/png"];
 const MAX_ID_SIZE = 10 * 1024 * 1024; // 10MB for IDs
@@ -306,6 +307,47 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/intakes/:id/validate", requireAuth(), async (req, res) => {
+    try {
+      const user = req.user!;
+      const intakeId = req.params.id;
+
+      const hasAccess = await canAccessIntake(user.id, user.role, intakeId);
+      if (!hasAccess) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      const validation = await validateIntake(intakeId);
+      return res.json(validation);
+    } catch (error) {
+      console.error("Error validating intake:", error);
+      return res.status(500).json({ error: "Failed to validate intake" });
+    }
+  });
+
+  app.post("/api/intakes/:id/recalculate-checklist", requireAuth(["preparer", "admin"]), async (req, res) => {
+    try {
+      const user = req.user!;
+      const intakeId = req.params.id;
+
+      const intake = await prisma.intakes.findUnique({
+        where: { id: intakeId },
+      });
+
+      if (!intake) {
+        return res.status(404).json({ error: "Intake not found" });
+      }
+
+      await syncChecklistFromValidation(intakeId, user.id);
+      const validation = await validateIntake(intakeId);
+
+      return res.json({ success: true, validation });
+    } catch (error) {
+      console.error("Error recalculating checklist:", error);
+      return res.status(500).json({ error: "Failed to recalculate checklist" });
+    }
+  });
+
   app.post("/api/intakes/:id/submit", requireAuth(["client"]), async (req, res) => {
     try {
       const user = req.user!;
@@ -328,12 +370,24 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Only draft intakes can be submitted" });
       }
 
+      const validation = await validateIntake(intakeId);
+      if (!validation.valid) {
+        return res.status(400).json({ 
+          error: "Intake has missing required fields or documents",
+          validation
+        });
+      }
+
       const oldStatus = intake.status;
       const newStatus = "submitted";
 
       await prisma.intakes.update({
         where: { id: intakeId },
-        data: { status: newStatus, updated_at: new Date() },
+        data: { 
+          status: newStatus, 
+          submitted_at: new Date(),
+          updated_at: new Date() 
+        },
       });
 
       await prisma.status_history.create({
@@ -850,6 +904,7 @@ export async function registerRoutes(
           field_name: field_name || null,
           description,
           is_resolved: false,
+          created_by_user_id: user.id,
         },
       });
 
@@ -878,7 +933,12 @@ export async function registerRoutes(
 
       await prisma.checklist_items.update({
         where: { id: itemId },
-        data: { is_resolved: true, resolved_at: new Date(), updated_at: new Date() },
+        data: { 
+          is_resolved: true, 
+          resolved_at: new Date(), 
+          resolved_by_user_id: user.id,
+          updated_at: new Date() 
+        },
       });
 
       await logChecklistItemResolved(user.id, item.intake_id, itemId, req);

@@ -48,6 +48,7 @@ model intakes {
   tax_year         Int
   status           String   @default("draft") // draft, submitted, in_review, ready_for_drake, filed, accepted, rejected
   assigned_preparer_id String?
+  submitted_at     DateTime?
   created_at       DateTime @default(now())
   updated_at       DateTime @updatedAt
 
@@ -284,22 +285,26 @@ model messages {
 }
 
 model checklist_items {
-  id          String   @id @default(uuid())
-  intake_id   String
-  item_type   String   // missing_field, missing_document, clarification_needed, custom
+  id                 String   @id @default(uuid())
+  intake_id          String
+  item_type          String   // missing_field, missing_document, clarification_needed, custom
   
-  field_name  String?
-  description String
-  is_resolved Boolean  @default(false)
-  resolved_at DateTime?
+  field_name         String?
+  description        String
+  is_resolved        Boolean  @default(false)
+  resolved_at        DateTime?
+  created_by_user_id String?
+  resolved_by_user_id String?
   
   created_at  DateTime @default(now())
   updated_at  DateTime @updatedAt
 
   intake intakes @relation(fields: [intake_id], references: [id], onDelete: Cascade)
 
+  @@unique([intake_id, item_type, field_name])
   @@index([intake_id])
   @@index([is_resolved])
+  @@index([item_type])
 }
 
 model audit_logs {

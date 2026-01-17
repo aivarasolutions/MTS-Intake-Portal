@@ -4,7 +4,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Loader2, ChevronLeft, ChevronRight, Check, User, Users, Home, MapPin, Save, Baby, Building2, DollarSign, Plus, Trash2, AlertTriangle, Upload, FileText, CreditCard, Download, X, FileCheck, Eye } from "lucide-react";
+import { Loader2, ChevronLeft, ChevronRight, Check, User, Users, Home, MapPin, Save, Baby, Building2, DollarSign, Plus, Trash2, AlertTriangle, Upload, FileText, CreditCard, Download, X, FileCheck, Eye, Send, CheckCircle2, XCircle } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -152,6 +152,7 @@ const STEPS = [
   { id: 6, title: "Childcare", description: "Childcare providers", icon: Building2 },
   { id: 7, title: "Estimated Payments", description: "Quarterly tax payments", icon: DollarSign },
   { id: 8, title: "Upload Documents", description: "IDs and tax forms", icon: Upload },
+  { id: 9, title: "Review & Submit", description: "Review and submit intake", icon: Send },
 ];
 
 function StepIndicator({ currentStep, steps, completedSteps }: { currentStep: number; steps: typeof STEPS; completedSteps: Set<number> }) {
@@ -1511,6 +1512,209 @@ function UploadDocumentsStep({
   );
 }
 
+interface ValidationResult {
+  valid: boolean;
+  missingFields: Array<{ field: string; description: string; section: string }>;
+  missingDocs: Array<{ field: string; description: string; section: string }>;
+  warnings: string[];
+}
+
+function ReviewSubmitStep({ 
+  intakeId, 
+  intakeStatus,
+  onRefresh 
+}: { 
+  intakeId: string; 
+  intakeStatus: string;
+  onRefresh: () => void;
+}) {
+  const { toast } = useToast();
+  const [, navigate] = useLocation();
+
+  const { data: validation, isLoading, refetch } = useQuery<ValidationResult>({
+    queryKey: ["/api/intakes", intakeId, "validate"],
+    queryFn: async () => {
+      const response = await fetch(`/api/intakes/${intakeId}/validate`);
+      if (!response.ok) throw new Error("Failed to validate");
+      return response.json();
+    },
+    enabled: !!intakeId,
+  });
+
+  const submitMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", `/api/intakes/${intakeId}/submit`, {});
+    },
+    onSuccess: () => {
+      toast({
+        title: "Intake Submitted",
+        description: "Your tax intake has been submitted for review. We'll be in touch soon!",
+      });
+      onRefresh();
+      navigate("/dashboard/client");
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Submission Failed",
+        description: error.message || "Failed to submit intake. Please ensure all required information is complete.",
+        variant: "destructive",
+      });
+      refetch();
+    },
+  });
+
+  const groupedMissingFields = validation?.missingFields.reduce((acc, item) => {
+    if (!acc[item.section]) acc[item.section] = [];
+    acc[item.section].push(item);
+    return acc;
+  }, {} as Record<string, typeof validation.missingFields>) || {};
+
+  const groupedMissingDocs = validation?.missingDocs.reduce((acc, item) => {
+    if (!acc[item.section]) acc[item.section] = [];
+    acc[item.section].push(item);
+    return acc;
+  }, {} as Record<string, typeof validation.missingDocs>) || {};
+
+  const isAlreadySubmitted = intakeStatus !== "draft";
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {isAlreadySubmitted ? (
+        <Alert className="border-blue-200 bg-blue-50 dark:border-blue-900/50 dark:bg-blue-900/20">
+          <CheckCircle2 className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+          <AlertDescription className="text-blue-800 dark:text-blue-200">
+            This intake has already been submitted and is currently being reviewed. You can still view and update your information, but you cannot submit again.
+          </AlertDescription>
+        </Alert>
+      ) : validation?.valid ? (
+        <Alert className="border-emerald-200 bg-emerald-50 dark:border-emerald-900/50 dark:bg-emerald-900/20">
+          <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+          <AlertDescription className="text-emerald-800 dark:text-emerald-200">
+            Your intake is complete and ready to submit! All required information and documents have been provided.
+          </AlertDescription>
+        </Alert>
+      ) : (
+        <Alert variant="destructive">
+          <XCircle className="h-4 w-4" />
+          <AlertDescription>
+            Your intake is incomplete. Please review and complete the missing items below before submitting.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {!validation?.valid && !isAlreadySubmitted && (
+        <>
+          {Object.keys(groupedMissingFields).length > 0 && (
+            <div className="space-y-4">
+              <h3 className="font-semibold text-lg flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-amber-500" />
+                Missing Information
+              </h3>
+              {Object.entries(groupedMissingFields).map(([section, items]) => (
+                <div key={section} className="bg-muted/50 rounded-lg p-4">
+                  <h4 className="font-medium text-sm text-muted-foreground mb-2">{section}</h4>
+                  <ul className="space-y-1">
+                    {items.map((item, idx) => (
+                      <li key={idx} className="flex items-center gap-2 text-sm">
+                        <XCircle className="h-4 w-4 text-destructive flex-shrink-0" />
+                        <span>{item.description}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {Object.keys(groupedMissingDocs).length > 0 && (
+            <div className="space-y-4">
+              <h3 className="font-semibold text-lg flex items-center gap-2">
+                <FileText className="h-5 w-5 text-amber-500" />
+                Missing Documents
+              </h3>
+              {Object.entries(groupedMissingDocs).map(([section, items]) => (
+                <div key={section} className="bg-muted/50 rounded-lg p-4">
+                  <h4 className="font-medium text-sm text-muted-foreground mb-2">{section}</h4>
+                  <ul className="space-y-1">
+                    {items.map((item, idx) => (
+                      <li key={idx} className="flex items-center gap-2 text-sm">
+                        <XCircle className="h-4 w-4 text-destructive flex-shrink-0" />
+                        <span>{item.description}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {validation?.warnings && validation.warnings.length > 0 && (
+        <div className="space-y-2">
+          <h3 className="font-semibold text-lg">Warnings</h3>
+          <ul className="space-y-1">
+            {validation.warnings.map((warning, idx) => (
+              <li key={idx} className="flex items-center gap-2 text-sm text-amber-600 dark:text-amber-400">
+                <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+                <span>{warning}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {!isAlreadySubmitted && (
+        <div className="pt-6 border-t">
+          <Button
+            onClick={() => submitMutation.mutate()}
+            disabled={!validation?.valid || submitMutation.isPending}
+            className="w-full"
+            size="lg"
+            data-testid="button-submit-intake"
+          >
+            {submitMutation.isPending ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Submitting...
+              </>
+            ) : (
+              <>
+                <Send className="mr-2 h-4 w-4" />
+                Submit Tax Intake for Review
+              </>
+            )}
+          </Button>
+          {!validation?.valid && (
+            <p className="text-sm text-muted-foreground text-center mt-2">
+              Complete all required items above to enable submission.
+            </p>
+          )}
+        </div>
+      )}
+
+      <div className="flex justify-center">
+        <Button
+          variant="ghost"
+          onClick={() => refetch()}
+          data-testid="button-refresh-validation"
+        >
+          <Loader2 className="mr-2 h-4 w-4" />
+          Refresh Validation Status
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export default function IntakeWizard() {
   const { id } = useParams<{ id: string }>();
   const [, navigate] = useLocation();
@@ -1826,6 +2030,13 @@ export default function IntakeWizard() {
                       intakeId={id!} 
                       files={intake.files || []} 
                       hasSpouse={!!(intake.taxpayer_info?.spouse_first_name)}
+                      intakeStatus={intake.status}
+                      onRefresh={handleRefreshIntake}
+                    />
+                  )}
+                  {currentStep === 9 && (
+                    <ReviewSubmitStep 
+                      intakeId={id!} 
                       intakeStatus={intake.status}
                       onRefresh={handleRefreshIntake}
                     />
