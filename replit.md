@@ -18,6 +18,7 @@ MTS 1040 is a full-stack tax document intake portal for managing client tax docu
 - **RBAC Hardening**: Implemented strict role-based access control with session cookie security (httpOnly, secure, sameSite=strict)
 - **Audit Logging**: Added comprehensive audit logging for login, logout, intake submission, status changes, packet generation, file upload/delete
 - **Protected API Routes**: Full intake and file management API with ownership enforcement
+- **TPINFO Page 1 Intake Wizard**: Multi-step wizard for clients with 4 sections (Personal Info, Spouse Info, Address, Residency), incremental persistence, progress indicators, and field validation
 
 ## User Preferences
 
@@ -160,6 +161,7 @@ Use `encryptToBytea()` and `decryptFromBytea()` from `/lib/crypto.ts`.
 - `/register` - Registration page
 - `/dashboard/client` - Client dashboard (client role only)
 - `/dashboard/admin` - Admin dashboard (preparer/admin roles)
+- `/intake/:id` - Intake wizard (TPINFO Page 1 with 4 steps)
 
 ## Component Organization
 
