@@ -1,0 +1,73 @@
+Proceed to implement “Generate Preparer Packet” (PDF summary + ZIP of uploaded docs) for preparer/admin only.
+
+Scope:
+- Add a button on the Admin/Preparer intake detail page: “Generate Preparer Packet”
+- Only roles: preparer/admin can generate and download packets.
+- Create and track requests in preparer_packet_requests table with status:
+  pending -> processing -> completed OR failed (with error_message)
+- Log to audit_logs for:
+  packet_generation_requested
+  packet_generation_completed
+  packet_downloaded
+  packet_generation_failed
+
+Outputs:
+1) Summary PDF:
+   - Create a clean preparer-facing PDF that includes:
+     - TPINFO Page 1 data (taxpayer + spouse + address + phones/emails)
+     - Filing status section (including special flags and conditional fields)
+     - Photo ID metadata section (taxpayer + spouse if applicable)
+     - Bank accounts (masked display: last 4 digits only)
+     - TPINFO Page 2 sections:
+       - Dependents list
+       - Childcare Providers list
+       - Estimated Payments list
+     - Checklist summary:
+       - unresolved checklist items (missing fields/docs + clarification/custom) grouped
+     - Intake status, tax_year, submitted_at timestamp
+
+   PDF requirements:
+   - Use a server-side PDF generator library (e.g. pdfkit or similar) with a consistent layout.
+   - Do NOT include raw SSNs, routing, or account numbers in plaintext.
+     Show masked forms only: XXX-XX-1234, ****1234.
+
+2) ZIP of documents:
+   - Generate a ZIP file that includes all uploads for the intake, grouped into folders:
+     /Photo_ID/  (photo_id_front, photo_id_back)
+     /W2/
+     /1099/1099_int/
+     /1099/1099_div/
+     /1099/1099_misc/
+     /1099/1099_nec/
+     /1099/1099_r/
+     /1098/
+     /Other/
+   - Each file should be named:
+     <category>__<original_filename>
+     and safely sanitized (no path traversal).
+   - Include the PDF summary at root:
+     Summary.pdf
+
+Storage:
+- Save generated artifacts under /exports/<intake_id>/<request_id>/
+  - Summary.pdf
+  - Packet.zip
+- Store storage_key fields or paths in preparer_packet_requests for retrieval.
+- Ensure secure download routes (only preparer/admin).
+
+UI:
+- Show packet request status with polling:
+  - pending/processing spinner
+  - completed with download buttons for Summary.pdf and Packet.zip
+  - failed with error_message
+- Add a “Regenerate” option (creates a new request row).
+
+Performance:
+- For MVP, synchronous generation is okay but must be structured as a job-like flow:
+  - set status=processing
+  - generate PDF
+  - generate ZIP
+  - set status=completed (or failed)
+
+Do NOT publish.
+Confirm when packet generation works end-to-end.
