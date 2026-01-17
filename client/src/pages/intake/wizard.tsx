@@ -760,16 +760,18 @@ function DependentsStep({
                     {dep.dob && ` • Born ${new Date(dep.dob).toLocaleDateString()}`}
                   </p>
                 </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => deleteMutation.mutate(dep.id)}
-                  disabled={deleteMutation.isPending}
-                  data-testid={`button-delete-dependent-${dep.id}`}
-                >
-                  <Trash2 className="h-4 w-4 text-destructive" />
-                </Button>
+                {!isReadOnly && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => deleteMutation.mutate(dep.id)}
+                    disabled={deleteMutation.isPending}
+                    data-testid={`button-delete-dependent-${dep.id}`}
+                  >
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
+                )}
               </div>
             </Card>
           ))}
@@ -981,16 +983,18 @@ function ChildcareStep({
                     {prov.amount_paid && ` • $${parseFloat(prov.amount_paid).toLocaleString()} paid`}
                   </p>
                 </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => deleteMutation.mutate(prov.id)}
-                  disabled={deleteMutation.isPending}
-                  data-testid={`button-delete-provider-${prov.id}`}
-                >
-                  <Trash2 className="h-4 w-4 text-destructive" />
-                </Button>
+                {!isReadOnly && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => deleteMutation.mutate(prov.id)}
+                    disabled={deleteMutation.isPending}
+                    data-testid={`button-delete-provider-${prov.id}`}
+                  >
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
+                )}
               </div>
             </Card>
           ))}
@@ -1186,16 +1190,18 @@ function EstimatedPaymentsStep({
                     {pmt.date_paid && ` • Paid ${new Date(pmt.date_paid).toLocaleDateString()}`}
                   </p>
                 </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => deleteMutation.mutate(pmt.id)}
-                  disabled={deleteMutation.isPending}
-                  data-testid={`button-delete-payment-${pmt.id}`}
-                >
-                  <Trash2 className="h-4 w-4 text-destructive" />
-                </Button>
+                {!isReadOnly && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => deleteMutation.mutate(pmt.id)}
+                    disabled={deleteMutation.isPending}
+                    data-testid={`button-delete-payment-${pmt.id}`}
+                  >
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
+                )}
               </div>
             </Card>
           ))}
@@ -1412,21 +1418,23 @@ function UploadDocumentsStep({
                   <span className="font-medium">{label}</span>
                   {required && <Badge variant="outline" className="text-xs">Required</Badge>}
                 </div>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handleFileUpload(key)}
-                  disabled={uploading === key}
-                  data-testid={`button-upload-${key}`}
-                >
-                  {uploading === key ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Upload className="mr-2 h-4 w-4" />
-                  )}
-                  Upload
-                </Button>
+                {!isReadOnly && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleFileUpload(key)}
+                    disabled={uploading === key}
+                    data-testid={`button-upload-${key}`}
+                  >
+                    {uploading === key ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Upload className="mr-2 h-4 w-4" />
+                    )}
+                    Upload
+                  </Button>
+                )}
               </div>
               
               {categoryFiles.length > 0 ? (
@@ -1609,7 +1617,7 @@ function ReviewSubmitStep({
         <Alert className="border-blue-200 bg-blue-50 dark:border-blue-900/50 dark:bg-blue-900/20">
           <CheckCircle2 className="h-4 w-4 text-blue-600 dark:text-blue-400" />
           <AlertDescription className="text-blue-800 dark:text-blue-200">
-            This intake has already been submitted and is currently being reviewed. You can still view and update your information, but you cannot submit again.
+            This intake has been submitted and is currently being reviewed. Your information is now locked. Contact your preparer if any changes are needed.
           </AlertDescription>
         </Alert>
       ) : validation?.valid ? (
