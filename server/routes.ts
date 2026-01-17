@@ -1186,6 +1186,56 @@ export async function registerRoutes(
     }
   });
 
+  app.patch("/api/intakes/:id/filing-status", requireAuth(["client"]), async (req, res) => {
+    try {
+      const user = req.user!;
+      const intakeId = req.params.id;
+      const { filing_status, spouse_itemizes_separately, can_be_claimed_as_dependent, spouse_can_be_claimed } = req.body;
+
+      const intake = await prisma.intakes.findUnique({
+        where: { id: intakeId },
+        select: { user_id: true, status: true },
+      });
+
+      if (!intake || intake.user_id !== user.id) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      if (intake.status !== "draft") {
+        return res.status(400).json({ error: "Cannot modify submitted intake" });
+      }
+
+      console.log(`[DEBUG] Updating filing status for intake ${intakeId}:`, filing_status);
+
+      await prisma.filing_status.upsert({
+        where: { intake_id: intakeId },
+        create: {
+          intake_id: intakeId,
+          filing_status,
+          spouse_itemizes_separately,
+          can_be_claimed_as_dependent,
+          spouse_can_be_claimed,
+        },
+        update: {
+          filing_status,
+          spouse_itemizes_separately,
+          can_be_claimed_as_dependent,
+          spouse_can_be_claimed,
+          updated_at: new Date(),
+        },
+      });
+
+      // Automatically sync checklist after update
+      const { syncChecklistFromValidation } = await import("./validation");
+      await syncChecklistFromValidation(intakeId, user.id);
+
+      return res.json({ success: true });
+    } catch (error) {
+      console.error("Error updating filing status:", error);
+      return res.status(500).json({ error: "Failed to update filing status" });
+    }
+  });
+
   app.get("/api/intakes/:id/taxpayer-info", requireAuth(), async (req, res) => {
     try {
       const user = req.user!;
@@ -1322,6 +1372,8 @@ export async function registerRoutes(
       if (county !== undefined) updateData.county = county || null;
       if (appointment_scheduled_for !== undefined) updateData.appointment_scheduled_for = appointment_scheduled_for || null;
 
+      console.log(`[DEBUG] Updating canonical TPINFO for intake ${intakeId}:`, Object.keys(updateData));
+
       const existingInfo = await prisma.taxpayer_info.findUnique({
         where: { intake_id: intakeId },
       });
@@ -1340,6 +1392,10 @@ export async function registerRoutes(
           },
         });
       }
+
+      // Automatically sync checklist after update
+      const { syncChecklistFromValidation } = await import("./validation");
+      await syncChecklistFromValidation(intakeId, user.id);
 
       const result = {
         ...taxpayerInfo,
