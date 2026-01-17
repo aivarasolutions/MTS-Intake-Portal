@@ -1,7 +1,7 @@
 import fs from "fs";
 import path from "path";
 import archiver from "archiver";
-import { prisma } from "./storage";
+import { prisma } from "../lib/prisma";
 import { generateSummaryPDF } from "./pdf";
 import { createAuditLog } from "./audit";
 

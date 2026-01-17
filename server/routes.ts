@@ -21,6 +21,8 @@ import {
   logFileDeleted,
   logFileDownload,
   logFileReviewToggled,
+  createAuditLog,
+  getClientInfo,
 } from "./audit";
 import { validateIntake, syncChecklistFromValidation } from "./validation";
 
