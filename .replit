@@ -46,3 +46,6 @@ PGPORT = "5432"
 PGUSER = "postgres"
 PGPASSWORD = "password"
 PGDATABASE = "heliumdb"
+
+[agent]
+integrations = ["javascript_database:1.0.0"]
