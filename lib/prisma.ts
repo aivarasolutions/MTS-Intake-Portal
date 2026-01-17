@@ -7,7 +7,20 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 function getConnectionString(): string {
-  // Always prefer constructing from individual PG env vars for reliability
+  const isProduction = process.env.NODE_ENV === "production";
+  
+  // In production, always prefer DATABASE_URL as it has the correct external hostname
+  if (isProduction && process.env.DATABASE_URL) {
+    try {
+      const url = new URL(process.env.DATABASE_URL);
+      console.log(`[DB] Production: Using DATABASE_URL -> ${url.host}${url.pathname}`);
+    } catch {
+      console.log(`[DB] Production: Using DATABASE_URL`);
+    }
+    return process.env.DATABASE_URL;
+  }
+  
+  // In development, prefer constructing from individual PG env vars
   const host = process.env.PGHOST;
   const port = process.env.PGPORT || "5432";
   const user = process.env.PGUSER || "postgres";
@@ -16,25 +29,24 @@ function getConnectionString(): string {
 
   if (host && database) {
     const connectionString = `postgresql://${user}:${password}@${host}:${port}/${database}`;
-    console.log(`[DB] Connecting to PostgreSQL at ${host}:${port}/${database}`);
+    console.log(`[DB] Development: Connecting to PostgreSQL at ${host}:${port}/${database}`);
     return connectionString;
   }
 
-  // Fallback to DATABASE_URL
+  // Final fallback to DATABASE_URL
   const dbUrl = process.env.DATABASE_URL;
   if (dbUrl) {
-    // Extract host from URL for logging (hide password)
     try {
       const url = new URL(dbUrl);
-      console.log(`[DB] Using DATABASE_URL: ${url.host}${url.pathname}`);
+      console.log(`[DB] Fallback: Using DATABASE_URL -> ${url.host}${url.pathname}`);
     } catch {
-      console.log(`[DB] Using DATABASE_URL (could not parse for logging)`);
+      console.log(`[DB] Fallback: Using DATABASE_URL`);
     }
     return dbUrl;
   }
 
   console.error("[DB] ERROR: No database connection configured!");
-  throw new Error("Database connection not configured. Please set PGHOST/PGDATABASE or DATABASE_URL.");
+  throw new Error("Database connection not configured. Please set DATABASE_URL.");
 }
 
 function createPrismaClient() {
