@@ -806,5 +806,175 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/intakes/:id/taxpayer-info", requireAuth(), async (req, res) => {
+    try {
+      const user = req.user!;
+      const intakeId = req.params.id;
+
+      const hasAccess = await canAccessIntake(user.id, user.role, intakeId);
+      if (!hasAccess) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      const taxpayerInfo = await prisma.taxpayer_info.findUnique({
+        where: { intake_id: intakeId },
+      });
+
+      if (!taxpayerInfo) {
+        return res.json(null);
+      }
+
+      const result = {
+        ...taxpayerInfo,
+        taxpayer_ssn_encrypted: undefined,
+        taxpayer_ip_pin_encrypted: undefined,
+        spouse_ssn_encrypted: undefined,
+        spouse_ip_pin_encrypted: undefined,
+        taxpayer_ssn_last4: taxpayerInfo.taxpayer_ssn_encrypted ? "****" : null,
+        spouse_ssn_last4: taxpayerInfo.spouse_ssn_encrypted ? "****" : null,
+        has_taxpayer_ip_pin: !!taxpayerInfo.taxpayer_ip_pin_encrypted,
+        has_spouse_ip_pin: !!taxpayerInfo.spouse_ip_pin_encrypted,
+      };
+
+      return res.json(result);
+    } catch (error) {
+      console.error("Error fetching taxpayer info:", error);
+      return res.status(500).json({ error: "Failed to fetch taxpayer info" });
+    }
+  });
+
+  app.patch("/api/intakes/:id/taxpayer-info", requireAuth(["client"]), async (req, res) => {
+    try {
+      const user = req.user!;
+      const intakeId = req.params.id;
+
+      const intake = await prisma.intakes.findUnique({
+        where: { id: intakeId },
+        select: { user_id: true, status: true },
+      });
+
+      if (!intake) {
+        return res.status(404).json({ error: "Intake not found" });
+      }
+
+      if (intake.user_id !== user.id) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      if (intake.status !== "draft") {
+        return res.status(400).json({ error: "Cannot modify submitted intake" });
+      }
+
+      const {
+        taxpayer_first_name,
+        taxpayer_middle_initial,
+        taxpayer_last_name,
+        taxpayer_dob,
+        taxpayer_ssn,
+        taxpayer_ip_pin,
+        taxpayer_occupation,
+        taxpayer_phone,
+        taxpayer_email,
+        spouse_first_name,
+        spouse_middle_initial,
+        spouse_last_name,
+        spouse_dob,
+        spouse_ssn,
+        spouse_ip_pin,
+        spouse_occupation,
+        spouse_phone,
+        spouse_email,
+        address_street,
+        address_apt,
+        address_city,
+        address_state,
+        address_zip,
+        resident_state,
+        resident_city,
+        school_district,
+        county,
+        appointment_scheduled_for,
+      } = req.body;
+
+      const { encryptToBytea } = await import("../lib/crypto");
+
+      const updateData: any = {};
+
+      if (taxpayer_first_name !== undefined) updateData.taxpayer_first_name = taxpayer_first_name || null;
+      if (taxpayer_middle_initial !== undefined) updateData.taxpayer_middle_initial = taxpayer_middle_initial || null;
+      if (taxpayer_last_name !== undefined) updateData.taxpayer_last_name = taxpayer_last_name || null;
+      if (taxpayer_dob !== undefined) updateData.taxpayer_dob = taxpayer_dob ? new Date(taxpayer_dob) : null;
+      if (taxpayer_occupation !== undefined) updateData.taxpayer_occupation = taxpayer_occupation || null;
+      if (taxpayer_phone !== undefined) updateData.taxpayer_phone = taxpayer_phone || null;
+      if (taxpayer_email !== undefined) updateData.taxpayer_email = taxpayer_email || null;
+
+      if (taxpayer_ssn !== undefined && taxpayer_ssn) {
+        updateData.taxpayer_ssn_encrypted = encryptToBytea(taxpayer_ssn);
+      }
+      if (taxpayer_ip_pin !== undefined && taxpayer_ip_pin) {
+        updateData.taxpayer_ip_pin_encrypted = encryptToBytea(taxpayer_ip_pin);
+      }
+
+      if (spouse_first_name !== undefined) updateData.spouse_first_name = spouse_first_name || null;
+      if (spouse_middle_initial !== undefined) updateData.spouse_middle_initial = spouse_middle_initial || null;
+      if (spouse_last_name !== undefined) updateData.spouse_last_name = spouse_last_name || null;
+      if (spouse_dob !== undefined) updateData.spouse_dob = spouse_dob ? new Date(spouse_dob) : null;
+      if (spouse_occupation !== undefined) updateData.spouse_occupation = spouse_occupation || null;
+      if (spouse_phone !== undefined) updateData.spouse_phone = spouse_phone || null;
+      if (spouse_email !== undefined) updateData.spouse_email = spouse_email || null;
+
+      if (spouse_ssn !== undefined && spouse_ssn) {
+        updateData.spouse_ssn_encrypted = encryptToBytea(spouse_ssn);
+      }
+      if (spouse_ip_pin !== undefined && spouse_ip_pin) {
+        updateData.spouse_ip_pin_encrypted = encryptToBytea(spouse_ip_pin);
+      }
+
+      if (address_street !== undefined) updateData.address_street = address_street || null;
+      if (address_apt !== undefined) updateData.address_apt = address_apt || null;
+      if (address_city !== undefined) updateData.address_city = address_city || null;
+      if (address_state !== undefined) updateData.address_state = address_state || null;
+      if (address_zip !== undefined) updateData.address_zip = address_zip || null;
+
+      if (resident_state !== undefined) updateData.resident_state = resident_state || null;
+      if (resident_city !== undefined) updateData.resident_city = resident_city || null;
+      if (school_district !== undefined) updateData.school_district = school_district || null;
+      if (county !== undefined) updateData.county = county || null;
+      if (appointment_scheduled_for !== undefined) updateData.appointment_scheduled_for = appointment_scheduled_for || null;
+
+      const existingInfo = await prisma.taxpayer_info.findUnique({
+        where: { intake_id: intakeId },
+      });
+
+      let taxpayerInfo;
+      if (existingInfo) {
+        taxpayerInfo = await prisma.taxpayer_info.update({
+          where: { intake_id: intakeId },
+          data: updateData,
+        });
+      } else {
+        taxpayerInfo = await prisma.taxpayer_info.create({
+          data: {
+            intake_id: intakeId,
+            ...updateData,
+          },
+        });
+      }
+
+      const result = {
+        ...taxpayerInfo,
+        taxpayer_ssn_encrypted: undefined,
+        taxpayer_ip_pin_encrypted: undefined,
+        spouse_ssn_encrypted: undefined,
+        spouse_ip_pin_encrypted: undefined,
+      };
+
+      return res.json({ success: true, data: result });
+    } catch (error) {
+      console.error("Error updating taxpayer info:", error);
+      return res.status(500).json({ error: "Failed to update taxpayer info" });
+    }
+  });
+
   return httpServer;
 }
