@@ -1825,12 +1825,13 @@ export default function IntakeWizard() {
   }, [taxpayerInfo, form]);
 
 
-  const saveMutation = useMutation({
+  const saveTaxpayerInfoMutation = useMutation({
     mutationFn: async (data: any) => {
       return apiRequest("PATCH", `/api/intakes/${id}/taxpayer-info`, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/intakes", id, "taxpayer-info"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/intakes", id, "validate"] });
       toast({
         title: "Progress saved",
         description: "Your information has been saved successfully.",
@@ -1845,6 +1846,17 @@ export default function IntakeWizard() {
     },
   });
 
+  const saveFilingStatusMutation = useMutation({
+    mutationFn: async (status: string) => {
+      return apiRequest("PATCH", `/api/intakes/${id}/filing-status`, { filing_status: status });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/intakes", id] });
+      queryClient.invalidateQueries({ queryKey: ["/api/intakes", id, "validate"] });
+      toast({ title: "Filing status updated" });
+    },
+  });
+
   const handleSave = () => {
     const values = form.getValues();
     const filteredValues: Record<string, any> = {};
@@ -1855,7 +1867,7 @@ export default function IntakeWizard() {
       }
     });
 
-    saveMutation.mutate(filteredValues);
+    saveTaxpayerInfoMutation.mutate(filteredValues);
   };
 
   const validateCurrentStep = async (): Promise<boolean> => {
@@ -1993,16 +2005,36 @@ export default function IntakeWizard() {
               <Form {...form}>
                 <form>
                   {currentStep === 1 && (
-                    <TaxpayerStep form={form} onSave={handleSave} isSaving={saveMutation.isPending} />
+                    <div className="space-y-6">
+                      <div className="bg-muted/30 p-4 rounded-lg border mb-6">
+                        <label className="text-sm font-medium mb-2 block">Filing Status *</label>
+                        <Select 
+                          value={intake?.filing_status?.filing_status || ""} 
+                          onValueChange={(val) => saveFilingStatusMutation.mutate(val)}
+                        >
+                          <SelectTrigger data-testid="select-filing-status">
+                            <SelectValue placeholder="Select filing status" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="single">Single</SelectItem>
+                            <SelectItem value="married">Married Filing Jointly</SelectItem>
+                            <SelectItem value="married_filing_separately">Married Filing Separately</SelectItem>
+                            <SelectItem value="head_of_household">Head of Household</SelectItem>
+                            <SelectItem value="widowed">Qualifying Widow(er)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <TaxpayerStep form={form} onSave={handleSave} isSaving={saveTaxpayerInfoMutation.isPending} />
+                    </div>
                   )}
                   {currentStep === 2 && (
-                    <SpouseStep form={form} onSave={handleSave} isSaving={saveMutation.isPending} />
+                    <SpouseStep form={form} onSave={handleSave} isSaving={saveTaxpayerInfoMutation.isPending} />
                   )}
                   {currentStep === 3 && (
-                    <AddressStep form={form} onSave={handleSave} isSaving={saveMutation.isPending} />
+                    <AddressStep form={form} onSave={handleSave} isSaving={saveTaxpayerInfoMutation.isPending} />
                   )}
                   {currentStep === 4 && (
-                    <ResidencyStep form={form} onSave={handleSave} isSaving={saveMutation.isPending} />
+                    <ResidencyStep form={form} onSave={handleSave} isSaving={saveTaxpayerInfoMutation.isPending} />
                   )}
                   {currentStep === 5 && (
                     <DependentsStep 
