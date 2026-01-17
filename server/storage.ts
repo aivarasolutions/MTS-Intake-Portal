@@ -2,6 +2,7 @@ import { prisma } from "../lib/prisma";
 import type { User, Session, InsertUser, InsertSession, SessionUser } from "../shared/schema";
 import { promises as fs } from "fs";
 import path from "path";
+import crypto from "crypto";
 
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
@@ -105,12 +106,14 @@ export interface FileStorageProvider {
 
 const UPLOAD_DIR = path.join(process.cwd(), "uploads");
 
-async function ensureUploadDir(): Promise<void> {
+async function ensureUploadDir(subdir?: string): Promise<string> {
+  const targetDir = subdir ? path.join(UPLOAD_DIR, subdir) : UPLOAD_DIR;
   try {
-    await fs.access(UPLOAD_DIR);
+    await fs.access(targetDir);
   } catch {
-    await fs.mkdir(UPLOAD_DIR, { recursive: true });
+    await fs.mkdir(targetDir, { recursive: true });
   }
+  return targetDir;
 }
 
 export class LocalFileStorage implements FileStorageProvider {
@@ -122,6 +125,40 @@ export class LocalFileStorage implements FileStorageProvider {
     const fullPath = path.join(UPLOAD_DIR, filepath);
     await fs.writeFile(fullPath, file);
     return filepath;
+  }
+
+  async uploadToIntake(file: Buffer, filename: string, intakeId: string): Promise<{ storedFilename: string; storageKey: string }> {
+    const targetDir = await ensureUploadDir(intakeId);
+    const ext = path.extname(filename);
+    const storedFilename = `${crypto.randomUUID()}${ext}`;
+    const storageKey = `uploads/${intakeId}/${storedFilename}`;
+    const fullPath = path.join(targetDir, storedFilename);
+    await fs.writeFile(fullPath, file);
+    return { storedFilename, storageKey };
+  }
+
+  async downloadByKey(storageKey: string): Promise<Buffer> {
+    const fullPath = path.join(process.cwd(), storageKey);
+    return fs.readFile(fullPath);
+  }
+
+  async deleteByKey(storageKey: string): Promise<void> {
+    const fullPath = path.join(process.cwd(), storageKey);
+    try {
+      await fs.unlink(fullPath);
+    } catch (error) {
+      console.error("Error deleting file:", error);
+    }
+  }
+
+  async existsByKey(storageKey: string): Promise<boolean> {
+    const fullPath = path.join(process.cwd(), storageKey);
+    try {
+      await fs.access(fullPath);
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   async download(filepath: string): Promise<Buffer> {

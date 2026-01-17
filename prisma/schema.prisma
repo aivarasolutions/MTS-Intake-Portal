@@ -245,15 +245,17 @@ model estimated_payments {
 model files {
   id            String   @id @default(uuid())
   intake_id     String
-  file_category String   // photo_id_front, photo_id_back, w2, 1099_int, 1099_div, 1099_misc, 1099_nec, 1099_r, 1098, other
+  file_category String   // photo_id_front, photo_id_back, spouse_photo_id_front, spouse_photo_id_back, w2, 1099_int, 1099_div, 1099_misc, 1099_nec, 1099_r, 1098, other
   
   original_filename String
   stored_filename   String
+  storage_key       String   // Relative path: uploads/<intake_id>/<stored_filename>
   mime_type         String
   file_size         Int
-  checksum_sha256   String  // SHA-256 hash for integrity
+  checksum          String   // SHA-256 hash for integrity
   
   uploaded_by_id    String?
+  is_reviewed       Boolean  @default(false)
   
   created_at    DateTime @default(now())
   updated_at    DateTime @updatedAt

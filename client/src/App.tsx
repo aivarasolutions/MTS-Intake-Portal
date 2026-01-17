@@ -11,6 +11,7 @@ import LoginPage from "@/pages/login";
 import RegisterPage from "@/pages/register";
 import ClientDashboard from "@/pages/dashboard/client";
 import AdminDashboard from "@/pages/dashboard/admin";
+import AdminIntakeDetail from "@/pages/admin/intake/detail";
 import IntakeWizard from "@/pages/intake/wizard";
 import NotFound from "@/pages/not-found";
 
@@ -52,6 +53,12 @@ function Router() {
       <Route path="/dashboard/admin">
         <ProtectedRoute allowedRoles={["preparer", "admin"]}>
           <AdminDashboard />
+        </ProtectedRoute>
+      </Route>
+      
+      <Route path="/admin/intake/:id">
+        <ProtectedRoute allowedRoles={["preparer", "admin"]}>
+          <AdminIntakeDetail />
         </ProtectedRoute>
       </Route>
       

@@ -19,11 +19,24 @@ import {
   logChecklistItemResolved,
   logFileUpload,
   logFileDeleted,
+  logFileDownload,
+  logFileReviewToggled,
 } from "./audit";
+
+const ALLOWED_MIME_TYPES = ["application/pdf", "image/jpeg", "image/png"];
+const MAX_ID_SIZE = 10 * 1024 * 1024; // 10MB for IDs
+const MAX_TAX_DOC_SIZE = 25 * 1024 * 1024; // 25MB for tax docs
+
+const ID_CATEGORIES = ["photo_id_front", "photo_id_back", "spouse_photo_id_front", "spouse_photo_id_back"];
+const TAX_DOC_CATEGORIES = ["w2", "1099_int", "1099_div", "1099_misc", "1099_nec", "1099_r", "1098", "other"];
+
+function getMaxSizeForCategory(category: string): number {
+  return ID_CATEGORIES.includes(category) ? MAX_ID_SIZE : MAX_TAX_DOC_SIZE;
+}
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 },
+  limits: { fileSize: MAX_TAX_DOC_SIZE },
 });
 
 declare global {
@@ -636,14 +649,24 @@ export async function registerRoutes(
         return res.status(400).json({ error: "No file uploaded" });
       }
 
+      if (!ALLOWED_MIME_TYPES.includes(req.file.mimetype)) {
+        return res.status(400).json({ error: "File type not allowed. Only PDF, JPEG, and PNG files are accepted." });
+      }
+
       const validCategory = fileCategoryEnum.includes(category) ? category : "other";
+      const maxSize = getMaxSizeForCategory(validCategory);
+
+      if (req.file.size > maxSize) {
+        const maxMB = Math.round(maxSize / (1024 * 1024));
+        return res.status(400).json({ error: `File too large. Maximum size is ${maxMB}MB for this document type.` });
+      }
 
       const checksum = crypto.createHash("sha256").update(req.file.buffer).digest("hex");
 
-      const filepath = await fileStorage.upload(
+      const { storedFilename, storageKey } = await (fileStorage as any).uploadToIntake(
         req.file.buffer,
         req.file.originalname,
-        req.file.mimetype
+        intakeId
       );
 
       const fileRecord = await prisma.files.create({
@@ -651,11 +674,13 @@ export async function registerRoutes(
           intake_id: intakeId,
           file_category: validCategory,
           original_filename: req.file.originalname,
-          stored_path: filepath,
+          stored_filename: storedFilename,
+          storage_key: storageKey,
           mime_type: req.file.mimetype,
           file_size: req.file.size,
-          checksum_sha256: checksum,
+          checksum: checksum,
           uploaded_by_id: user.id,
+          is_reviewed: false,
         },
       });
 
@@ -668,7 +693,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/files/:fileId", requireAuth(), async (req, res) => {
+  app.get("/api/files/:fileId/download", requireAuth(), async (req, res) => {
     try {
       const user = req.user!;
       const fileId = req.params.fileId;
@@ -687,12 +712,14 @@ export async function registerRoutes(
         return res.status(403).json({ error: "Access denied" });
       }
 
-      const exists = await fileStorage.exists(file.stored_path);
+      const exists = await (fileStorage as any).existsByKey(file.storage_key);
       if (!exists) {
         return res.status(404).json({ error: "File not found on storage" });
       }
 
-      const buffer = await fileStorage.download(file.stored_path);
+      const buffer = await (fileStorage as any).downloadByKey(file.storage_key);
+
+      await logFileDownload(user.id, file.intake_id, fileId, file.original_filename, req);
 
       res.setHeader("Content-Type", file.mime_type);
       res.setHeader("Content-Disposition", `attachment; filename="${file.original_filename}"`);
@@ -702,6 +729,39 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error downloading file:", error);
       return res.status(500).json({ error: "Failed to download file" });
+    }
+  });
+
+  app.patch("/api/files/:fileId/review", requireAuth(["preparer", "admin"]), async (req, res) => {
+    try {
+      const user = req.user!;
+      const fileId = req.params.fileId;
+      const { is_reviewed } = req.body;
+
+      if (typeof is_reviewed !== "boolean") {
+        return res.status(400).json({ error: "is_reviewed must be a boolean" });
+      }
+
+      const file = await prisma.files.findUnique({
+        where: { id: fileId },
+        select: { id: true, intake_id: true },
+      });
+
+      if (!file) {
+        return res.status(404).json({ error: "File not found" });
+      }
+
+      const updatedFile = await prisma.files.update({
+        where: { id: fileId },
+        data: { is_reviewed },
+      });
+
+      await logFileReviewToggled(user.id, file.intake_id, fileId, is_reviewed, req);
+
+      return res.json(updatedFile);
+    } catch (error) {
+      console.error("Error toggling file review:", error);
+      return res.status(500).json({ error: "Failed to update file review status" });
     }
   });
 
@@ -728,7 +788,7 @@ export async function registerRoutes(
         }
       }
 
-      await fileStorage.delete(file.stored_path);
+      await (fileStorage as any).deleteByKey(file.storage_key);
 
       await prisma.files.delete({
         where: { id: fileId },

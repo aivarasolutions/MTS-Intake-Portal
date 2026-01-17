@@ -57,6 +57,8 @@ export type PaymentPeriod = typeof paymentPeriodEnum[number];
 export const fileCategoryEnum = [
   "photo_id_front",
   "photo_id_back",
+  "spouse_photo_id_front",
+  "spouse_photo_id_back",
   "w2",
   "1099_int",
   "1099_div",

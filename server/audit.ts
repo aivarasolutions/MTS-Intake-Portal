@@ -220,3 +220,41 @@ export async function logChecklistItemResolved(
     user_agent,
   });
 }
+
+export async function logFileDownload(
+  userId: string,
+  intakeId: string,
+  fileId: string,
+  filename: string,
+  req: any
+): Promise<void> {
+  const { ip_address, user_agent } = getClientInfo(req);
+  await createAuditLog({
+    user_id: userId,
+    action: "file_downloaded",
+    resource: "file",
+    resource_id: fileId,
+    details: { intake_id: intakeId, filename },
+    ip_address,
+    user_agent,
+  });
+}
+
+export async function logFileReviewToggled(
+  userId: string,
+  intakeId: string,
+  fileId: string,
+  isReviewed: boolean,
+  req: any
+): Promise<void> {
+  const { ip_address, user_agent } = getClientInfo(req);
+  await createAuditLog({
+    user_id: userId,
+    action: "file_review_toggled",
+    resource: "file",
+    resource_id: fileId,
+    details: { intake_id: intakeId, is_reviewed: isReviewed },
+    ip_address,
+    user_agent,
+  });
+}

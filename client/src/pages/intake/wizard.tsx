@@ -4,7 +4,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Loader2, ChevronLeft, ChevronRight, Check, User, Users, Home, MapPin, Save, Baby, Building2, DollarSign, Plus, Trash2, AlertTriangle } from "lucide-react";
+import { Loader2, ChevronLeft, ChevronRight, Check, User, Users, Home, MapPin, Save, Baby, Building2, DollarSign, Plus, Trash2, AlertTriangle, Upload, FileText, CreditCard, Download, X, FileCheck, Eye } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,8 @@ import { Progress } from "@/components/ui/progress";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { ClientLayout } from "@/components/layouts/client-layout";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -149,6 +151,7 @@ const STEPS = [
   { id: 5, title: "Dependents", description: "Children and relatives", icon: Baby },
   { id: 6, title: "Childcare", description: "Childcare providers", icon: Building2 },
   { id: 7, title: "Estimated Payments", description: "Quarterly tax payments", icon: DollarSign },
+  { id: 8, title: "Upload Documents", description: "IDs and tax forms", icon: Upload },
 ];
 
 function StepIndicator({ currentStep, steps, completedSteps }: { currentStep: number; steps: typeof STEPS; completedSteps: Set<number> }) {
@@ -1267,6 +1270,247 @@ function EstimatedPaymentsStep({
   );
 }
 
+const FILE_CATEGORIES = {
+  identification: [
+    { key: "photo_id_front", label: "Photo ID (Front)", required: true },
+    { key: "photo_id_back", label: "Photo ID (Back)", required: true },
+  ],
+  spouse_identification: [
+    { key: "spouse_photo_id_front", label: "Spouse Photo ID (Front)", required: true },
+    { key: "spouse_photo_id_back", label: "Spouse Photo ID (Back)", required: true },
+  ],
+  w2: [
+    { key: "w2", label: "W-2 Forms", required: false },
+  ],
+  form_1099: [
+    { key: "1099_int", label: "1099-INT (Interest)", required: false },
+    { key: "1099_div", label: "1099-DIV (Dividends)", required: false },
+    { key: "1099_misc", label: "1099-MISC (Miscellaneous)", required: false },
+    { key: "1099_nec", label: "1099-NEC (Non-employee)", required: false },
+    { key: "1099_r", label: "1099-R (Retirement)", required: false },
+  ],
+  form_1098: [
+    { key: "1098", label: "1098 (Mortgage Interest)", required: false },
+  ],
+  other: [
+    { key: "other", label: "Other Documents", required: false },
+  ],
+};
+
+function UploadDocumentsStep({ 
+  intakeId, 
+  files,
+  hasSpouse,
+  intakeStatus,
+  onRefresh 
+}: { 
+  intakeId: string; 
+  files: any[];
+  hasSpouse: boolean;
+  intakeStatus: string;
+  onRefresh: () => void;
+}) {
+  const { toast } = useToast();
+  const [uploading, setUploading] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState("identification");
+
+  const canDelete = intakeStatus === "draft";
+
+  const uploadMutation = useMutation({
+    mutationFn: async ({ file, category }: { file: File; category: string }) => {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("category", category);
+      
+      const response = await fetch(`/api/intakes/${intakeId}/files`, {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+      });
+      
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Upload failed");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      onRefresh();
+      setUploading(null);
+      toast({ title: "File uploaded", description: "The document has been uploaded successfully." });
+    },
+    onError: (error: any) => {
+      setUploading(null);
+      toast({ title: "Upload failed", description: error.message || "Failed to upload file", variant: "destructive" });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (fileId: string) => {
+      return apiRequest("DELETE", `/api/files/${fileId}`);
+    },
+    onSuccess: () => {
+      onRefresh();
+      toast({ title: "File deleted", description: "The document has been removed." });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to delete file", variant: "destructive" });
+    },
+  });
+
+  const handleFileUpload = (category: string) => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".pdf,.jpg,.jpeg,.png";
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (file) {
+        setUploading(category);
+        uploadMutation.mutate({ file, category });
+      }
+    };
+    input.click();
+  };
+
+  const getFilesForCategory = (category: string) => {
+    return files.filter((f: any) => f.file_category === category);
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const renderCategoryFiles = (categories: { key: string; label: string; required: boolean }[]) => {
+    return (
+      <div className="space-y-4">
+        {categories.map(({ key, label, required }) => {
+          const categoryFiles = getFilesForCategory(key);
+          return (
+            <div key={key} className="border rounded-md p-4">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <FileText className="h-5 w-5 text-muted-foreground" />
+                  <span className="font-medium">{label}</span>
+                  {required && <Badge variant="outline" className="text-xs">Required</Badge>}
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleFileUpload(key)}
+                  disabled={uploading === key}
+                  data-testid={`button-upload-${key}`}
+                >
+                  {uploading === key ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Upload className="mr-2 h-4 w-4" />
+                  )}
+                  Upload
+                </Button>
+              </div>
+              
+              {categoryFiles.length > 0 ? (
+                <div className="space-y-2">
+                  {categoryFiles.map((file: any) => (
+                    <div key={file.id} className="flex items-center justify-between bg-muted/50 rounded-md px-3 py-2">
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <FileCheck className="h-4 w-4 text-green-600 flex-shrink-0" />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium truncate">{file.original_filename}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {formatFileSize(file.file_size)} • {new Date(file.created_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          asChild
+                          data-testid={`button-download-${file.id}`}
+                        >
+                          <a href={`/api/files/${file.id}/download`} download>
+                            <Download className="h-4 w-4" />
+                          </a>
+                        </Button>
+                        {canDelete && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => deleteMutation.mutate(file.id)}
+                            disabled={deleteMutation.isPending}
+                            data-testid={`button-delete-file-${file.id}`}
+                          >
+                            <X className="h-4 w-4 text-destructive" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground italic">No files uploaded</p>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const tabsToShow = [
+    { value: "identification", label: "Photo ID", categories: FILE_CATEGORIES.identification },
+    ...(hasSpouse ? [{ value: "spouse_identification", label: "Spouse ID", categories: FILE_CATEGORIES.spouse_identification }] : []),
+    { value: "w2", label: "W-2", categories: FILE_CATEGORIES.w2 },
+    { value: "form_1099", label: "1099s", categories: FILE_CATEGORIES.form_1099 },
+    { value: "form_1098", label: "1098", categories: FILE_CATEGORIES.form_1098 },
+    { value: "other", label: "Other", categories: FILE_CATEGORIES.other },
+  ];
+
+  return (
+    <div className="space-y-6">
+      <p className="text-sm text-muted-foreground">
+        Upload your tax documents and identification. Accepted file types: PDF, JPEG, PNG. 
+        IDs: max 10MB per file. Tax documents: max 25MB per file.
+      </p>
+
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="flex flex-wrap h-auto gap-1">
+          {tabsToShow.map((tab) => (
+            <TabsTrigger key={tab.value} value={tab.value} className="text-xs sm:text-sm" data-testid={`tab-${tab.value}`}>
+              {tab.label}
+              {(() => {
+                const count = tab.categories.reduce((sum, cat) => sum + getFilesForCategory(cat.key).length, 0);
+                return count > 0 ? <Badge variant="secondary" className="ml-1.5 text-xs">{count}</Badge> : null;
+              })()}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+        
+        {tabsToShow.map((tab) => (
+          <TabsContent key={tab.value} value={tab.value} className="mt-4">
+            {renderCategoryFiles(tab.categories)}
+          </TabsContent>
+        ))}
+      </Tabs>
+
+      {!canDelete && (
+        <Alert>
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription>
+            This intake has been submitted. Files cannot be deleted. Contact your preparer if changes are needed.
+          </AlertDescription>
+        </Alert>
+      )}
+    </div>
+  );
+}
+
 export default function IntakeWizard() {
   const { id } = useParams<{ id: string }>();
   const [, navigate] = useLocation();
@@ -1426,6 +1670,7 @@ export default function IntakeWizard() {
       case 5:
       case 6:
       case 7:
+      case 8:
         return true;
     }
 
@@ -1573,6 +1818,15 @@ export default function IntakeWizard() {
                     <EstimatedPaymentsStep 
                       intakeId={id!} 
                       payments={intake.estimated_payments || []} 
+                      onRefresh={handleRefreshIntake}
+                    />
+                  )}
+                  {currentStep === 8 && (
+                    <UploadDocumentsStep 
+                      intakeId={id!} 
+                      files={intake.files || []} 
+                      hasSpouse={!!(intake.taxpayer_info?.spouse_first_name)}
+                      intakeStatus={intake.status}
                       onRefresh={handleRefreshIntake}
                     />
                   )}
