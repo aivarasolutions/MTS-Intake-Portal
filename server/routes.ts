@@ -72,6 +72,36 @@ export async function registerRoutes(
 ): Promise<Server> {
   app.use(cookieParser());
 
+  // Health check endpoint for debugging production issues
+  app.get("/api/health", async (req, res) => {
+    try {
+      // Test database connection
+      const result = await prisma.$queryRaw`SELECT 1 as ok`;
+      const userCount = await prisma.users.count();
+      return res.json({
+        status: "healthy",
+        database: "connected",
+        userCount,
+        env: {
+          nodeEnv: process.env.NODE_ENV || "not set",
+          hasPgHost: !!process.env.PGHOST,
+          hasDatabaseUrl: !!process.env.DATABASE_URL,
+        },
+      });
+    } catch (error: any) {
+      return res.status(500).json({
+        status: "unhealthy",
+        database: "error",
+        error: error.message || "Unknown error",
+        env: {
+          nodeEnv: process.env.NODE_ENV || "not set",
+          hasPgHost: !!process.env.PGHOST,
+          hasDatabaseUrl: !!process.env.DATABASE_URL,
+        },
+      });
+    }
+  });
+
   app.post("/api/auth/register", async (req, res) => {
     try {
       const validated = registerSchema.safeParse(req.body);
