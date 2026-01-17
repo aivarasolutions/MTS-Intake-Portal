@@ -428,6 +428,169 @@ export async function registerRoutes(
     }
   });
 
+  // --- DEPENDENTS ---
+  app.post("/api/intakes/:id/dependents", requireAuth(["client"]), async (req, res) => {
+    try {
+      const user = req.user!;
+      const intakeId = req.params.id;
+      const { 
+        first_name, last_name, ssn, relationship, 
+        months_lived_with, dob, is_student, is_disabled, 
+        provides_over_half_support, has_ip_pin, ip_pin
+      } = req.body;
+
+      const intake = await prisma.intakes.findUnique({ where: { id: intakeId } });
+      if (!intake || intake.user_id !== user.id) return res.status(403).json({ error: "Access denied" });
+
+      const { encryptToBytea } = await import("../lib/crypto");
+      
+      const dependent = await prisma.dependents.create({
+        data: {
+          intake_id: intakeId,
+          first_name,
+          last_name,
+          ssn_encrypted: ssn ? encryptToBytea(ssn) : null,
+          relationship,
+          months_lived_with: months_lived_with ? parseInt(months_lived_with) : null,
+          dob: dob ? new Date(dob) : null,
+          is_student: !!is_student,
+          is_disabled: !!is_disabled,
+          provides_over_half_support: !!provides_over_half_support,
+        }
+      });
+
+      return res.status(201).json(dependent);
+    } catch (error) {
+      console.error("Error creating dependent:", error);
+      return res.status(500).json({ error: "Failed to create dependent" });
+    }
+  });
+
+  app.delete("/api/dependents/:id", requireAuth(["client"]), async (req, res) => {
+    try {
+      const user = req.user!;
+      const dependentId = req.params.id;
+
+      const dependent = await prisma.dependents.findUnique({
+        where: { id: dependentId },
+        include: { intake: true }
+      });
+
+      if (!dependent || dependent.intake.user_id !== user.id) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      await prisma.dependents.delete({ where: { id: dependentId } });
+      return res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting dependent:", error);
+      return res.status(500).json({ error: "Failed to delete dependent" });
+    }
+  });
+
+  // --- CHILDCARE PROVIDERS ---
+  app.post("/api/intakes/:id/childcare", requireAuth(["client"]), async (req, res) => {
+    try {
+      const user = req.user!;
+      const intakeId = req.params.id;
+      const { provider_name, provider_address, provider_city, provider_state, provider_zip, provider_ein, amount_paid } = req.body;
+
+      const intake = await prisma.intakes.findUnique({ where: { id: intakeId } });
+      if (!intake || intake.user_id !== user.id) return res.status(403).json({ error: "Access denied" });
+
+      const { encryptToBytea } = await import("../lib/crypto");
+
+      const provider = await prisma.childcare_providers.create({
+        data: {
+          intake_id: intakeId,
+          provider_name,
+          provider_address,
+          provider_city,
+          provider_state,
+          provider_zip,
+          provider_ein_encrypted: provider_ein ? encryptToBytea(provider_ein) : null,
+          amount_paid: amount_paid ? parseFloat(amount_paid) : null,
+        }
+      });
+
+      return res.status(201).json(provider);
+    } catch (error) {
+      console.error("Error creating childcare provider:", error);
+      return res.status(500).json({ error: "Failed to create childcare provider" });
+    }
+  });
+
+  app.delete("/api/childcare/:id", requireAuth(["client"]), async (req, res) => {
+    try {
+      const user = req.user!;
+      const providerId = req.params.id;
+
+      const provider = await prisma.childcare_providers.findUnique({
+        where: { id: providerId },
+        include: { intake: true }
+      });
+
+      if (!provider || provider.intake.user_id !== user.id) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      await prisma.childcare_providers.delete({ where: { id: providerId } });
+      return res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting childcare provider:", error);
+      return res.status(500).json({ error: "Failed to delete childcare provider" });
+    }
+  });
+
+  // --- ESTIMATED PAYMENTS ---
+  app.post("/api/intakes/:id/estimated-payments", requireAuth(["client"]), async (req, res) => {
+    try {
+      const user = req.user!;
+      const intakeId = req.params.id;
+      const { tax_authority, payment_period, amount, date_paid } = req.body;
+
+      const intake = await prisma.intakes.findUnique({ where: { id: intakeId } });
+      if (!intake || intake.user_id !== user.id) return res.status(403).json({ error: "Access denied" });
+
+      const payment = await prisma.estimated_payments.create({
+        data: {
+          intake_id: intakeId,
+          tax_authority,
+          payment_period,
+          amount: parseFloat(amount),
+          date_paid: date_paid ? new Date(date_paid) : null,
+        }
+      });
+
+      return res.status(201).json(payment);
+    } catch (error) {
+      console.error("Error creating estimated payment:", error);
+      return res.status(500).json({ error: "Failed to create estimated payment" });
+    }
+  });
+
+  app.delete("/api/estimated-payments/:id", requireAuth(["client"]), async (req, res) => {
+    try {
+      const user = req.user!;
+      const paymentId = req.params.id;
+
+      const payment = await prisma.estimated_payments.findUnique({
+        where: { id: paymentId },
+        include: { intake: true }
+      });
+
+      if (!payment || payment.intake.user_id !== user.id) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      await prisma.estimated_payments.delete({ where: { id: paymentId } });
+      return res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting estimated payment:", error);
+      return res.status(500).json({ error: "Failed to delete estimated payment" });
+    }
+  });
+
   app.get("/api/intakes/:id/files", requireAuth(), async (req, res) => {
     try {
       const user = req.user!;
