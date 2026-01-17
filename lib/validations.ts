@@ -1,41 +1,5 @@
 import { z } from "zod";
 
-export const roleEnum = ["client", "preparer", "admin"] as const;
-export type Role = typeof roleEnum[number];
-
-export interface User {
-  id: string;
-  email: string;
-  password_hash: string;
-  first_name: string;
-  last_name: string;
-  role: Role;
-  created_at: Date;
-  updated_at: Date;
-}
-
-export interface Session {
-  id: string;
-  user_id: string;
-  token: string;
-  expires_at: Date;
-  created_at: Date;
-}
-
-export interface SessionUser {
-  id: string;
-  email: string;
-  first_name: string;
-  last_name: string;
-  role: Role;
-}
-
-export interface AuthSession {
-  user: SessionUser;
-  token: string;
-  expires_at: Date;
-}
-
 export const loginSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
   password: z.string().min(1, "Password is required"),
@@ -59,17 +23,3 @@ export const registerSchema = z.object({
 
 export type LoginInput = z.infer<typeof loginSchema>;
 export type RegisterInput = z.infer<typeof registerSchema>;
-
-export interface InsertUser {
-  email: string;
-  password_hash: string;
-  first_name: string;
-  last_name: string;
-  role?: Role;
-}
-
-export interface InsertSession {
-  user_id: string;
-  token: string;
-  expires_at: Date;
-}
