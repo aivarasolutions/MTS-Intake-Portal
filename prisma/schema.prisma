@@ -1,16 +1,13 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
 }
 
 datasource db {
   provider = "postgresql"
 }
 
-enum Role {
-  client
-  preparer
-  admin
-}
+// === MODELS ===
 
 model users {
   id            String    @id @default(uuid())
@@ -18,10 +15,18 @@ model users {
   password_hash String
   first_name    String
   last_name     String
-  role          Role      @default(client)
+  role          String    @default("client") // client, preparer, admin
   created_at    DateTime  @default(now())
   updated_at    DateTime  @updatedAt
-  sessions      sessions[]
+
+  sessions               sessions[]
+  intakes                intakes[]
+  assigned_intakes       intakes[]               @relation("AssignedPreparer")
+  messages_sent          messages[]              @relation("MessageSender")
+  audit_logs             audit_logs[]
+  preparer_packet_requests preparer_packet_requests[]
+
+  @@index([email])
 }
 
 model sessions {
@@ -30,8 +35,324 @@ model sessions {
   token      String   @unique
   expires_at DateTime
   created_at DateTime @default(now())
-  user       users    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  user users @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@index([user_id])
   @@index([token])
+}
+
+model intakes {
+  id               String   @id @default(uuid())
+  user_id          String
+  tax_year         Int
+  status           String   @default("draft") // draft, submitted, in_review, ready_for_drake, filed, accepted, rejected
+  assigned_preparer_id String?
+  created_at       DateTime @default(now())
+  updated_at       DateTime @updatedAt
+
+  user             users    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  assigned_preparer users?  @relation("AssignedPreparer", fields: [assigned_preparer_id], references: [id])
+  
+  taxpayer_info    taxpayer_info?
+  filing_status    filing_status?
+  photo_ids        photo_ids[]
+  bank_accounts    bank_accounts[]
+  dependents       dependents[]
+  childcare_providers childcare_providers[]
+  estimated_payments estimated_payments[]
+  files            files[]
+  messages         messages[]
+  checklist_items  checklist_items[]
+  status_history   status_history[]
+  preparer_packet_requests preparer_packet_requests[]
+
+  @@index([user_id])
+  @@index([assigned_preparer_id])
+  @@index([status])
+}
+
+model taxpayer_info {
+  id                        String   @id @default(uuid())
+  intake_id                 String   @unique
+  
+  // Taxpayer basic info
+  taxpayer_first_name       String?
+  taxpayer_middle_initial   String?
+  taxpayer_last_name        String?
+  taxpayer_dob              DateTime?
+  taxpayer_ssn_encrypted    Bytes?   // Encrypted SSN
+  taxpayer_ip_pin_encrypted Bytes?   // Encrypted IP PIN
+  taxpayer_occupation       String?
+  taxpayer_phone            String?
+  taxpayer_email            String?
+  
+  // Spouse basic info
+  spouse_first_name         String?
+  spouse_middle_initial     String?
+  spouse_last_name          String?
+  spouse_dob                DateTime?
+  spouse_ssn_encrypted      Bytes?   // Encrypted SSN
+  spouse_ip_pin_encrypted   Bytes?   // Encrypted IP PIN
+  spouse_occupation         String?
+  spouse_phone              String?
+  spouse_email              String?
+  
+  // Address
+  address_street            String?
+  address_apt               String?
+  address_city              String?
+  address_state             String?
+  address_zip               String?
+  
+  // Additional info
+  resident_state            String?
+  resident_city             String?
+  school_district           String?
+  county                    String?
+  
+  // Appointment info
+  appointment_scheduled_for String?  @db.VarChar(100)
+  
+  created_at                DateTime @default(now())
+  updated_at                DateTime @updatedAt
+
+  intake intakes @relation(fields: [intake_id], references: [id], onDelete: Cascade)
+
+  @@index([intake_id])
+}
+
+model filing_status {
+  id              String   @id @default(uuid())
+  intake_id       String   @unique
+  filing_status   String   // single, married, widowed, married_filing_separately, head_of_household
+  
+  // Questions related to filing status
+  spouse_itemizes_separately  Boolean?
+  can_be_claimed_as_dependent Boolean?
+  spouse_can_be_claimed       Boolean?
+  
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+
+  intake intakes @relation(fields: [intake_id], references: [id], onDelete: Cascade)
+
+  @@index([intake_id])
+}
+
+model photo_ids {
+  id                    String   @id @default(uuid())
+  intake_id             String
+  person_type           String   // taxpayer, spouse
+  id_type               String   // drivers_license, state_id
+  
+  id_number_encrypted   Bytes?   // Encrypted ID number
+  issuing_state         String?
+  issue_date            DateTime?
+  expiration_date       DateTime?
+  
+  front_file_id         String?
+  back_file_id          String?
+  
+  created_at            DateTime @default(now())
+  updated_at            DateTime @updatedAt
+
+  intake intakes @relation(fields: [intake_id], references: [id], onDelete: Cascade)
+
+  @@index([intake_id])
+  @@index([person_type])
+}
+
+model bank_accounts {
+  id                       String   @id @default(uuid())
+  intake_id                String
+  account_type             String   // checking, savings
+  bank_name                String?
+  routing_number_encrypted Bytes?   // Encrypted routing number
+  account_number_encrypted Bytes?   // Encrypted account number
+  
+  is_primary               Boolean  @default(false)
+  
+  created_at               DateTime @default(now())
+  updated_at               DateTime @updatedAt
+
+  intake intakes @relation(fields: [intake_id], references: [id], onDelete: Cascade)
+
+  @@index([intake_id])
+}
+
+model dependents {
+  id                    String    @id @default(uuid())
+  intake_id             String
+  
+  first_name            String?
+  middle_initial        String?
+  last_name             String?
+  dob                   DateTime?
+  ssn_encrypted         Bytes?    // Encrypted SSN
+  relationship          String?
+  months_lived_with     Int?
+  
+  is_student            Boolean?
+  is_disabled           Boolean?
+  provides_over_half_support Boolean?
+  
+  created_at            DateTime  @default(now())
+  updated_at            DateTime  @updatedAt
+
+  intake intakes @relation(fields: [intake_id], references: [id], onDelete: Cascade)
+
+  @@index([intake_id])
+}
+
+model childcare_providers {
+  id                    String   @id @default(uuid())
+  intake_id             String
+  
+  provider_name         String?
+  provider_address      String?
+  provider_city         String?
+  provider_state        String?
+  provider_zip          String?
+  provider_ein_encrypted Bytes?  // Encrypted EIN/SSN
+  amount_paid           Decimal? @db.Decimal(12, 2)
+  
+  created_at            DateTime @default(now())
+  updated_at            DateTime @updatedAt
+
+  intake intakes @relation(fields: [intake_id], references: [id], onDelete: Cascade)
+
+  @@index([intake_id])
+}
+
+model estimated_payments {
+  id             String   @id @default(uuid())
+  intake_id      String
+  tax_authority  String   // federal, resident_state, resident_city
+  payment_period String   // overpayment_2024, q1, q2, q3, q4, additional
+  amount         Decimal  @db.Decimal(12, 2)
+  date_paid      DateTime?
+  
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+
+  intake intakes @relation(fields: [intake_id], references: [id], onDelete: Cascade)
+
+  @@index([intake_id])
+  @@index([tax_authority])
+}
+
+model files {
+  id            String   @id @default(uuid())
+  intake_id     String
+  file_category String   // photo_id_front, photo_id_back, w2, 1099_int, 1099_div, 1099_misc, 1099_nec, 1099_r, 1098, other
+  
+  original_filename String
+  stored_filename   String
+  mime_type         String
+  file_size         Int
+  checksum_sha256   String  // SHA-256 hash for integrity
+  
+  uploaded_by_id    String?
+  
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+
+  intake intakes @relation(fields: [intake_id], references: [id], onDelete: Cascade)
+
+  @@index([intake_id])
+  @@index([file_category])
+}
+
+model messages {
+  id         String   @id @default(uuid())
+  intake_id  String
+  sender_id  String
+  
+  content    String
+  is_read    Boolean  @default(false)
+  
+  created_at DateTime @default(now())
+
+  intake intakes @relation(fields: [intake_id], references: [id], onDelete: Cascade)
+  sender users   @relation("MessageSender", fields: [sender_id], references: [id])
+
+  @@index([intake_id])
+  @@index([sender_id])
+}
+
+model checklist_items {
+  id          String   @id @default(uuid())
+  intake_id   String
+  item_type   String   // missing_field, missing_document, clarification_needed, custom
+  
+  field_name  String?
+  description String
+  is_resolved Boolean  @default(false)
+  resolved_at DateTime?
+  
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  intake intakes @relation(fields: [intake_id], references: [id], onDelete: Cascade)
+
+  @@index([intake_id])
+  @@index([is_resolved])
+}
+
+model audit_logs {
+  id          String   @id @default(uuid())
+  user_id     String?
+  action      String
+  resource    String
+  resource_id String?
+  result      String   // success, failure
+  ip_address  String?
+  user_agent  String?
+  details     Json?
+  
+  created_at  DateTime @default(now())
+
+  user users? @relation(fields: [user_id], references: [id])
+
+  @@index([user_id])
+  @@index([action])
+  @@index([resource])
+  @@index([created_at])
+}
+
+model status_history {
+  id            String   @id @default(uuid())
+  intake_id     String
+  old_status    String?  // draft, submitted, in_review, ready_for_drake, filed, accepted, rejected
+  new_status    String   // draft, submitted, in_review, ready_for_drake, filed, accepted, rejected
+  changed_by_id String?
+  notes         String?
+  
+  created_at    DateTime @default(now())
+
+  intake intakes @relation(fields: [intake_id], references: [id], onDelete: Cascade)
+
+  @@index([intake_id])
+  @@index([created_at])
+}
+
+model preparer_packet_requests {
+  id          String   @id @default(uuid())
+  intake_id   String
+  requested_by_id String
+  status      String   @default("pending") // pending, processing, completed, failed
+  
+  packet_url  String?
+  error_message String?
+  
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+  completed_at DateTime?
+
+  intake intakes @relation(fields: [intake_id], references: [id], onDelete: Cascade)
+  requested_by users @relation(fields: [requested_by_id], references: [id])
+
+  @@index([intake_id])
+  @@index([status])
 }
