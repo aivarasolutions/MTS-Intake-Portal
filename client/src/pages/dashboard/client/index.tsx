@@ -190,7 +190,13 @@ export default function ClientDashboard() {
                 <p className="text-sm text-muted-foreground mb-4">
                   Securely upload your tax documents. We accept PDF, JPG, and PNG files up to 10MB each.
                 </p>
-                <Button variant="outline" className="w-full" data-testid="button-upload-documents" disabled={!currentIntake}>
+                <Button 
+                  variant="outline" 
+                  className="w-full" 
+                  onClick={() => currentIntake && navigate(`/intake/${currentIntake.id}?step=8`)}
+                  disabled={!currentIntake}
+                  data-testid="button-upload-documents"
+                >
                   <Upload className="mr-2 h-4 w-4" />
                   Upload Documents
                 </Button>

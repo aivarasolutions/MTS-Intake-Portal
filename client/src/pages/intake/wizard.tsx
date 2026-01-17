@@ -1746,7 +1746,21 @@ export default function IntakeWizard() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const { user } = useAuth();
-  const [currentStep, setCurrentStep] = useState(1);
+  
+  // Read initial step from URL query parameter
+  const getInitialStep = () => {
+    const params = new URLSearchParams(window.location.search);
+    const stepParam = params.get("step");
+    if (stepParam) {
+      const step = parseInt(stepParam, 10);
+      if (step >= 1 && step <= STEPS.length) {
+        return step;
+      }
+    }
+    return 1;
+  };
+  
+  const [currentStep, setCurrentStep] = useState(getInitialStep);
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
 
   const { data: intake, isLoading: intakeLoading, refetch: refetchIntake } = useQuery<any>({
