@@ -37,3 +37,12 @@ author = "agent"
 task = "shell.exec"
 args = "npm run dev"
 waitForPort = 5000
+
+[userenv]
+
+[userenv.production]
+PGHOST = "helium"
+PGPORT = "5432"
+PGUSER = "postgres"
+PGPASSWORD = "password"
+PGDATABASE = "heliumdb"
