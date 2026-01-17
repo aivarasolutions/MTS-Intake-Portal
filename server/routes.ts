@@ -997,6 +997,11 @@ export async function registerRoutes(
 
       await logPacketGeneration(user.id, intakeId, req, { request_id: packetRequest.id });
 
+      const { processPacketRequest } = await import("./packet");
+      processPacketRequest(packetRequest.id).catch(err => {
+        console.error("Background packet generation failed:", err);
+      });
+
       return res.status(201).json({ 
         success: true, 
         request_id: packetRequest.id,
@@ -1006,6 +1011,96 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error requesting packet:", error);
       return res.status(500).json({ error: "Failed to request packet" });
+    }
+  });
+
+  app.get("/api/intakes/:id/packet-requests", requireAuth(["preparer", "admin"]), async (req, res) => {
+    try {
+      const intakeId = req.params.id;
+
+      const requests = await prisma.preparer_packet_requests.findMany({
+        where: { intake_id: intakeId },
+        orderBy: { created_at: "desc" },
+        include: {
+          requested_by: {
+            select: { id: true, email: true, first_name: true, last_name: true },
+          },
+        },
+      });
+
+      return res.json(requests);
+    } catch (error) {
+      console.error("Error fetching packet requests:", error);
+      return res.status(500).json({ error: "Failed to fetch packet requests" });
+    }
+  });
+
+  app.get("/api/packet-requests/:requestId", requireAuth(["preparer", "admin"]), async (req, res) => {
+    try {
+      const requestId = req.params.requestId;
+
+      const request = await prisma.preparer_packet_requests.findUnique({
+        where: { id: requestId },
+        include: {
+          requested_by: {
+            select: { id: true, email: true, first_name: true, last_name: true },
+          },
+        },
+      });
+
+      if (!request) {
+        return res.status(404).json({ error: "Packet request not found" });
+      }
+
+      return res.json(request);
+    } catch (error) {
+      console.error("Error fetching packet request:", error);
+      return res.status(500).json({ error: "Failed to fetch packet request" });
+    }
+  });
+
+  app.get("/api/packet-requests/:requestId/download/:filename", requireAuth(["preparer", "admin"]), async (req, res) => {
+    try {
+      const user = req.user!;
+      const { requestId, filename } = req.params;
+
+      if (filename !== "Summary.pdf" && filename !== "Packet.zip") {
+        return res.status(400).json({ error: "Invalid filename" });
+      }
+
+      const request = await prisma.preparer_packet_requests.findUnique({
+        where: { id: requestId },
+      });
+
+      if (!request) {
+        return res.status(404).json({ error: "Packet request not found" });
+      }
+
+      if (request.status !== "completed" || !request.packet_url) {
+        return res.status(400).json({ error: "Packet is not ready for download" });
+      }
+
+      const { getPacketPath } = await import("./packet");
+      const filePath = getPacketPath(request.packet_url, filename as "Summary.pdf" | "Packet.zip");
+
+      const fs = await import("fs");
+      if (!fs.existsSync(filePath)) {
+        return res.status(404).json({ error: "File not found" });
+      }
+
+      await createAuditLog({
+        user_id: user.id,
+        action: "packet_generated",
+        resource: "intake",
+        resource_id: request.intake_id,
+        details: { request_id: requestId, download: filename },
+        ...getClientInfo(req),
+      });
+
+      res.download(filePath, filename);
+    } catch (error) {
+      console.error("Error downloading packet file:", error);
+      return res.status(500).json({ error: "Failed to download file" });
     }
   });
 

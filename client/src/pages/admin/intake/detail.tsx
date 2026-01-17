@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { 
   Loader2, ChevronLeft, FileText, Download, Eye, CheckCircle2, 
   User, Calendar, Mail, Phone, MapPin, Clock, FileCheck, AlertTriangle, 
-  RefreshCw, Plus, Check, X, XCircle, ClipboardList, MessageSquare, Settings
+  RefreshCw, Plus, Check, X, XCircle, ClipboardList, MessageSquare, Settings,
+  Package, FileArchive
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -29,6 +30,23 @@ interface ChecklistItem {
   created_by_user_id: string | null;
   resolved_by_user_id: string | null;
   created_at: string;
+}
+
+interface PacketRequest {
+  id: string;
+  intake_id: string;
+  requested_by_id: string;
+  status: "pending" | "processing" | "completed" | "failed";
+  packet_url: string | null;
+  error_message: string | null;
+  created_at: string;
+  completed_at: string | null;
+  requested_by: {
+    id: string;
+    email: string;
+    first_name: string | null;
+    last_name: string | null;
+  };
 }
 
 const CHECKLIST_TYPE_CONFIG: Record<string, { label: string; icon: any; color: string }> = {
@@ -162,6 +180,40 @@ export default function AdminIntakeDetail() {
       toast({ title: "Error", description: error.message || "Failed to delete item", variant: "destructive" });
     },
   });
+
+  const { data: packetRequests, refetch: refetchPackets } = useQuery<PacketRequest[]>({
+    queryKey: ["/api/intakes", id, "packet-requests"],
+    queryFn: async () => {
+      const response = await fetch(`/api/intakes/${id}/packet-requests`);
+      if (!response.ok) throw new Error("Failed to fetch packet requests");
+      return response.json();
+    },
+    enabled: !!id,
+  });
+
+  const generatePacketMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", `/api/intakes/${id}/packet`, {});
+    },
+    onSuccess: () => {
+      refetchPackets();
+      toast({ title: "Packet Requested", description: "Generating preparer packet..." });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to request packet", variant: "destructive" });
+    },
+  });
+
+  const latestRequest = packetRequests?.[0];
+  const isProcessing = latestRequest?.status === "pending" || latestRequest?.status === "processing";
+
+  useEffect(() => {
+    if (!isProcessing) return;
+    const interval = setInterval(() => {
+      refetchPackets();
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [isProcessing, refetchPackets]);
 
   const formatFileSize = (bytes: number) => {
     if (bytes < 1024) return `${bytes} B`;
@@ -612,6 +664,105 @@ export default function AdminIntakeDetail() {
                   </div>
                 )}
               </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between gap-4 flex-wrap">
+                <div>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Package className="h-5 w-5" />
+                    Preparer Packet
+                  </CardTitle>
+                  <CardDescription>
+                    Generate a summary PDF and ZIP of all documents
+                  </CardDescription>
+                </div>
+                <Button
+                  onClick={() => generatePacketMutation.mutate()}
+                  disabled={generatePacketMutation.isPending || isProcessing}
+                  data-testid="button-generate-packet"
+                >
+                  {generatePacketMutation.isPending || isProcessing ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : (
+                    <Package className="h-4 w-4 mr-2" />
+                  )}
+                  {latestRequest ? "Regenerate Packet" : "Generate Packet"}
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {latestRequest ? (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-4 rounded-lg border bg-card">
+                    <div className="flex items-center gap-3">
+                      {latestRequest.status === "pending" || latestRequest.status === "processing" ? (
+                        <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                      ) : latestRequest.status === "completed" ? (
+                        <CheckCircle2 className="h-5 w-5 text-green-600" />
+                      ) : (
+                        <XCircle className="h-5 w-5 text-destructive" />
+                      )}
+                      <div>
+                        <p className="font-medium">
+                          {latestRequest.status === "pending" && "Queued for processing..."}
+                          {latestRequest.status === "processing" && "Generating packet..."}
+                          {latestRequest.status === "completed" && "Packet ready for download"}
+                          {latestRequest.status === "failed" && "Packet generation failed"}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          Requested {new Date(latestRequest.created_at).toLocaleString()}
+                          {latestRequest.completed_at && 
+                            ` • Completed ${new Date(latestRequest.completed_at).toLocaleString()}`
+                          }
+                        </p>
+                        {latestRequest.error_message && (
+                          <p className="text-sm text-destructive mt-1">{latestRequest.error_message}</p>
+                        )}
+                      </div>
+                    </div>
+                    {latestRequest.status === "completed" && (
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          asChild
+                          data-testid="button-download-summary"
+                        >
+                          <a href={`/api/packet-requests/${latestRequest.id}/download/Summary.pdf`} download>
+                            <FileText className="h-4 w-4 mr-1" />
+                            Summary
+                          </a>
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          asChild
+                          data-testid="button-download-zip"
+                        >
+                          <a href={`/api/packet-requests/${latestRequest.id}/download/Packet.zip`} download>
+                            <FileArchive className="h-4 w-4 mr-1" />
+                            Full Packet
+                          </a>
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+
+                  {packetRequests && packetRequests.length > 1 && (
+                    <div className="text-sm text-muted-foreground">
+                      <p>{packetRequests.length} total packet requests for this intake</p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="py-8 text-center text-muted-foreground">
+                  <Package className="h-10 w-10 mx-auto mb-2 opacity-50" />
+                  <p>No packets generated yet. Click "Generate Packet" to create one.</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
