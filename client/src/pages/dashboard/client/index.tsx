@@ -94,14 +94,18 @@ export default function ClientDashboard() {
     
     if (intake.taxpayer_info) {
       const tp = intake.taxpayer_info;
-      if (tp.taxpayer_first_name && tp.taxpayer_last_name) progress += 20;
-      if (tp.address_street && tp.address_city) progress += 20;
+      if (tp.taxpayer_first_name && tp.taxpayer_last_name) progress += 15;
+      if (tp.address_street && tp.address_city) progress += 15;
     }
     
-    if (intake.filing_status) progress += 15;
-    if (intake.files?.length > 0) progress += 20;
-    if (intake.status === "submitted") progress = Math.max(progress, 60);
-    if (intake.status === "in_review") progress = Math.max(progress, 70);
+    if (intake.dependents !== undefined) progress += 10;
+    if (intake.childcare_providers !== undefined) progress += 10;
+    if (intake.estimated_payments !== undefined) progress += 10;
+    
+    if (intake.filing_status) progress += 10;
+    if (intake.files?.length > 0) progress += 10;
+    if (intake.status === "submitted") progress = Math.max(progress, 70);
+    if (intake.status === "in_review") progress = Math.max(progress, 80);
     if (intake.status === "filed" || intake.status === "accepted") progress = 100;
     
     return Math.min(progress, 100);
