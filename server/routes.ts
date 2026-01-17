@@ -74,6 +74,16 @@ export async function registerRoutes(
 
   // Health check endpoint for debugging production issues
   app.get("/api/health", async (req, res) => {
+    // Parse DATABASE_URL to show host (hide password)
+    let dbHost = "unknown";
+    try {
+      const dbUrl = process.env.DATABASE_URL;
+      if (dbUrl) {
+        const url = new URL(dbUrl);
+        dbHost = url.host;
+      }
+    } catch {}
+
     try {
       // Test database connection
       const result = await prisma.$queryRaw`SELECT 1 as ok`;
@@ -82,6 +92,7 @@ export async function registerRoutes(
         status: "healthy",
         database: "connected",
         userCount,
+        dbHost,
         env: {
           nodeEnv: process.env.NODE_ENV || "not set",
           hasPgHost: !!process.env.PGHOST,
@@ -93,6 +104,7 @@ export async function registerRoutes(
         status: "unhealthy",
         database: "error",
         error: error.message || "Unknown error",
+        dbHost,
         env: {
           nodeEnv: process.env.NODE_ENV || "not set",
           hasPgHost: !!process.env.PGHOST,
