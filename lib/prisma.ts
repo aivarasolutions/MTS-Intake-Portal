@@ -7,14 +7,6 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 function createPrismaClient() {
-  // Clean up environment variables - force them to be strings or undefined
-  // This prevents the "string argument must be of type string" error
-  if (typeof process.env.PGHOST === 'object') delete process.env.PGHOST;
-  if (typeof process.env.PGPORT === 'object') delete process.env.PGPORT;
-  if (typeof process.env.PGUSER === 'object') delete process.env.PGUSER;
-  if (typeof process.env.PGPASSWORD === 'object') delete process.env.PGPASSWORD;
-  if (typeof process.env.PGDATABASE === 'object') delete process.env.PGDATABASE;
-  
   // Ensure DATABASE_URL is a string
   const connectionString = process.env.DATABASE_URL;
   
@@ -28,16 +20,21 @@ function createPrismaClient() {
     finalConnectionString = connectionString + (connectionString.includes('?') ? '&' : '?') + 'sslmode=require';
   }
   
-  // Create pool with ONLY connectionString to avoid env var type issues
-  // Explicitly set individual connection params to undefined to prevent
-  // the pg library from reading PGHOST, PGPORT, etc. from environment
+  // Parse the connection string manually to extract components
+  // This bypasses the pg Pool's automatic environment variable reading
+  const url = new URL(finalConnectionString);
+  
+  // Create pool with explicit configuration from the parsed URL
+  // This prevents pg from reading PGHOST, PGPORT, etc. from environment
   const pool = new Pool({
-    connectionString: finalConnectionString,
-    host: undefined,
-    port: undefined,
-    user: undefined,
-    password: undefined,
-    database: undefined,
+    host: url.hostname,
+    port: parseInt(url.port) || 5432,
+    user: url.username,
+    password: url.password,
+    database: url.pathname.slice(1), // Remove leading slash
+    ssl: url.searchParams.get('sslmode') === 'require' ? { rejectUnauthorized: false } : false,
+    // Explicitly set these to prevent env var reading
+    connectionString: undefined,
   });
   
   const adapter = new PrismaPg(pool);
