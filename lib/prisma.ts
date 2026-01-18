@@ -7,9 +7,23 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 function createPrismaClient() {
+  // Ensure DATABASE_URL is a string
+  const connectionString = process.env.DATABASE_URL;
+  
+  if (!connectionString || typeof connectionString !== 'string') {
+    throw new Error('DATABASE_URL environment variable is not set or is not a string');
+  }
+  
+  // For Neon databases, we need to add SSL mode
+  let finalConnectionString = connectionString;
+  if (connectionString.includes('neon.tech') && !connectionString.includes('sslmode=')) {
+    finalConnectionString = connectionString + (connectionString.includes('?') ? '&' : '?') + 'sslmode=require';
+  }
+  
   const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
+    connectionString: finalConnectionString,
   });
+  
   const adapter = new PrismaPg(pool);
   return new PrismaClient({ adapter });
 }
