@@ -7,6 +7,14 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 function createPrismaClient() {
+  // Clean up environment variables - force them to be strings or undefined
+  // This prevents the "string argument must be of type string" error
+  if (typeof process.env.PGHOST === 'object') delete process.env.PGHOST;
+  if (typeof process.env.PGPORT === 'object') delete process.env.PGPORT;
+  if (typeof process.env.PGUSER === 'object') delete process.env.PGUSER;
+  if (typeof process.env.PGPASSWORD === 'object') delete process.env.PGPASSWORD;
+  if (typeof process.env.PGDATABASE === 'object') delete process.env.PGDATABASE;
+  
   // Ensure DATABASE_URL is a string
   const connectionString = process.env.DATABASE_URL;
   
