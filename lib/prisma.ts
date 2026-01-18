@@ -20,8 +20,16 @@ function createPrismaClient() {
     finalConnectionString = connectionString + (connectionString.includes('?') ? '&' : '?') + 'sslmode=require';
   }
   
+  // Create pool with ONLY connectionString to avoid env var type issues
+  // Explicitly set individual connection params to undefined to prevent
+  // the pg library from reading PGHOST, PGPORT, etc. from environment
   const pool = new Pool({
     connectionString: finalConnectionString,
+    host: undefined,
+    port: undefined,
+    user: undefined,
+    password: undefined,
+    database: undefined,
   });
   
   const adapter = new PrismaPg(pool);

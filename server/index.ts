@@ -2,6 +2,16 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
+import { validateEnvironment, sanitizeEnvironment } from "../lib/env-validator";
+
+// Validate and sanitize environment variables before anything else
+try {
+  sanitizeEnvironment();
+  validateEnvironment();
+} catch (error) {
+  console.error("Environment validation failed:", error);
+  process.exit(1);
+}
 
 const app = express();
 const httpServer = createServer(app);
