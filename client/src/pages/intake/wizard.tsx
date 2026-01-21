@@ -70,10 +70,13 @@ const PAYMENT_PERIOD_OPTIONS = [
   { value: "additional", label: "Additional Payment" },
 ];
 
+const SUFFIX_OPTIONS = ["", "Jr.", "Sr.", "I", "II", "III", "IV", "V", "VI", "VII", "VIII"];
+
 const taxpayerSchema = z.object({
   taxpayer_first_name: z.string().min(1, "First name is required").max(50),
   taxpayer_middle_initial: z.string().max(1).optional().or(z.literal("")),
   taxpayer_last_name: z.string().min(1, "Last name is required").max(50),
+  taxpayer_suffix: z.string().max(10).optional().or(z.literal("")),
   taxpayer_dob: z.string().min(1, "Date of birth is required"),
   taxpayer_ssn: z.string().min(1, "Social Security Number is required").regex(/^\d{3}-?\d{2}-?\d{4}$/, "Enter a valid SSN (XXX-XX-XXXX)"),
   taxpayer_ip_pin: z.string().max(6).optional().or(z.literal("")),
@@ -238,6 +241,37 @@ function TaxpayerStep({ form, onSave, isSaving, isReadOnly = false }: { form: an
           )}
         />
       </div>
+
+      <FormField
+        control={form.control}
+        name="taxpayer_suffix"
+        render={({ field }) => (
+          <FormItem className="max-w-[200px]">
+            <FormLabel>Suffix</FormLabel>
+            <Select onValueChange={field.onChange} value={field.value || ""} disabled={disabled}>
+              <FormControl>
+                <SelectTrigger data-testid="select-taxpayer-suffix">
+                  <SelectValue placeholder="Select suffix" />
+                </SelectTrigger>
+              </FormControl>
+              <SelectContent>
+                <SelectItem value="none">None</SelectItem>
+                <SelectItem value="Jr.">Jr.</SelectItem>
+                <SelectItem value="Sr.">Sr.</SelectItem>
+                <SelectItem value="I">I</SelectItem>
+                <SelectItem value="II">II</SelectItem>
+                <SelectItem value="III">III</SelectItem>
+                <SelectItem value="IV">IV</SelectItem>
+                <SelectItem value="V">V</SelectItem>
+                <SelectItem value="VI">VI</SelectItem>
+                <SelectItem value="VII">VII</SelectItem>
+                <SelectItem value="VIII">VIII</SelectItem>
+              </SelectContent>
+            </Select>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <FormField
@@ -1790,6 +1824,7 @@ export default function IntakeWizard() {
       taxpayer_first_name: "",
       taxpayer_middle_initial: "",
       taxpayer_last_name: "",
+      taxpayer_suffix: "",
       taxpayer_dob: "",
       taxpayer_ssn: "",
       taxpayer_ip_pin: "",
@@ -1829,6 +1864,7 @@ export default function IntakeWizard() {
         taxpayer_first_name: taxpayerInfo.taxpayer_first_name || "",
         taxpayer_middle_initial: taxpayerInfo.taxpayer_middle_initial || "",
         taxpayer_last_name: taxpayerInfo.taxpayer_last_name || "",
+        taxpayer_suffix: taxpayerInfo.taxpayer_suffix || "",
         taxpayer_dob: dateToString(taxpayerInfo.taxpayer_dob),
         taxpayer_ssn: "",
         taxpayer_ip_pin: "",

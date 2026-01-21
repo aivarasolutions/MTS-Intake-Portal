@@ -81,6 +81,7 @@ model taxpayer_info {
   taxpayer_first_name       String?
   taxpayer_middle_initial   String?
   taxpayer_last_name        String?
+  taxpayer_suffix           String?
   taxpayer_dob              DateTime?
   taxpayer_ssn_encrypted    Bytes?   // Encrypted SSN
   taxpayer_ip_pin_encrypted Bytes?   // Encrypted IP PIN
