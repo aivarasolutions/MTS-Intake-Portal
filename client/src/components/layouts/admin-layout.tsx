@@ -10,6 +10,7 @@ import {
   ChevronRight,
   Bell,
   Search,
+  BellOff,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +20,11 @@ import { Input } from "@/components/ui/input";
 import { cn, getInitials } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
 import { UserMenu } from "@/components/shared/user-menu";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -151,15 +157,34 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           </div>
 
           <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="relative"
-              data-testid="button-notifications"
-            >
-              <Bell className="h-5 w-5" />
-              <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-destructive" />
-            </Button>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="relative"
+                  data-testid="button-notifications"
+                >
+                  <Bell className="h-5 w-5" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80" align="end">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-semibold">Notifications</h4>
+                    <Badge variant="secondary" size="sm">0 new</Badge>
+                  </div>
+                  <Separator />
+                  <div className="flex flex-col items-center justify-center py-8 text-center">
+                    <BellOff className="h-8 w-8 text-muted-foreground mb-2" />
+                    <p className="text-sm text-muted-foreground">No new notifications</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      You're all caught up!
+                    </p>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
             <UserMenu />
           </div>
         </header>

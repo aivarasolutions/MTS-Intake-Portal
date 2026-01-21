@@ -11,6 +11,9 @@ import LoginPage from "@/pages/login";
 import RegisterPage from "@/pages/register";
 import ClientDashboard from "@/pages/dashboard/client";
 import AdminDashboard from "@/pages/dashboard/admin";
+import AdminClients from "@/pages/dashboard/admin/clients";
+import AdminDocuments from "@/pages/dashboard/admin/documents";
+import AdminSettings from "@/pages/dashboard/admin/settings";
 import AdminIntakeDetail from "@/pages/admin/intake/detail";
 import IntakeWizard from "@/pages/intake/wizard";
 import NotFound from "@/pages/not-found";
@@ -53,6 +56,24 @@ function Router() {
       <Route path="/dashboard/admin">
         <ProtectedRoute allowedRoles={["preparer", "admin"]}>
           <AdminDashboard />
+        </ProtectedRoute>
+      </Route>
+      
+      <Route path="/dashboard/admin/clients">
+        <ProtectedRoute allowedRoles={["preparer", "admin"]}>
+          <AdminClients />
+        </ProtectedRoute>
+      </Route>
+      
+      <Route path="/dashboard/admin/documents">
+        <ProtectedRoute allowedRoles={["preparer", "admin"]}>
+          <AdminDocuments />
+        </ProtectedRoute>
+      </Route>
+      
+      <Route path="/dashboard/admin/settings">
+        <ProtectedRoute allowedRoles={["preparer", "admin"]}>
+          <AdminSettings />
         </ProtectedRoute>
       </Route>
       
