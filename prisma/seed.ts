@@ -1,14 +1,7 @@
 import { PrismaClient } from "@prisma/client";
-import { Pool } from "pg";
-import { PrismaPg } from "@prisma/adapter-pg";
 import bcrypt from "bcryptjs";
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-});
-
-const adapter = new PrismaPg(pool);
-const prisma = new PrismaClient({ adapter });
+const prisma = new PrismaClient();
 
 async function hashPassword(password: string): Promise<string> {
   return bcrypt.hash(password, 12);
@@ -51,7 +44,7 @@ async function main() {
   const clientPassword = await hashPassword("Client123!");
   const client = await prisma.users.upsert({
     where: { email: "demo@example.com" },
-    update: {},
+    update: { password_hash: clientPassword },
     create: {
       email: "demo@example.com",
       password_hash: clientPassword,
@@ -141,11 +134,9 @@ async function main() {
 main()
   .then(async () => {
     await prisma.$disconnect();
-    await pool.end();
   })
   .catch(async (e) => {
     console.error(e);
     await prisma.$disconnect();
-    await pool.end();
     process.exit(1);
   });

@@ -248,7 +248,7 @@ function TaxpayerStep({ form, onSave, isSaving, isReadOnly = false }: { form: an
         render={({ field }) => (
           <FormItem className="max-w-[200px]">
             <FormLabel>Suffix</FormLabel>
-            <Select onValueChange={field.onChange} value={field.value || ""} disabled={disabled}>
+            <Select onValueChange={field.onChange} value={field.value || ""} disabled={isReadOnly}>
               <FormControl>
                 <SelectTrigger data-testid="select-taxpayer-suffix">
                   <SelectValue placeholder="Select suffix" />
