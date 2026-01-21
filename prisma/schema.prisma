@@ -53,7 +53,7 @@ model intakes {
   updated_at       DateTime @updatedAt
 
   user             users    @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  assigned_preparer users?  @relation("AssignedPreparer", fields: [assigned_preparer_id], references: [id])
+  assigned_preparer users?  @relation("AssignedPreparer", fields: [assigned_preparer_id], references: [id], onDelete: SetNull)
   
   taxpayer_info    taxpayer_info?
   filing_status    filing_status?
@@ -279,7 +279,7 @@ model messages {
   created_at DateTime @default(now())
 
   intake intakes @relation(fields: [intake_id], references: [id], onDelete: Cascade)
-  sender users   @relation("MessageSender", fields: [sender_id], references: [id])
+  sender users   @relation("MessageSender", fields: [sender_id], references: [id], onDelete: Cascade)
 
   @@index([intake_id])
   @@index([sender_id])
@@ -359,7 +359,7 @@ model preparer_packet_requests {
   completed_at DateTime?
 
   intake intakes @relation(fields: [intake_id], references: [id], onDelete: Cascade)
-  requested_by users @relation(fields: [requested_by_id], references: [id])
+  requested_by users @relation(fields: [requested_by_id], references: [id], onDelete: Cascade)
 
   @@index([intake_id])
   @@index([status])
