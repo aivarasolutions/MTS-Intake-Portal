@@ -11,16 +11,6 @@ import { Link } from "wouter";
 import { getInitials } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 
 function getStatusBadgeVariant(status: string): "default" | "warning" | "success" | "destructive" {
   switch (status) {
@@ -56,8 +46,6 @@ function getStatusLabel(status: string): string {
 export default function AdminClients() {
   const { toast } = useToast();
   const [deletingClientId, setDeletingClientId] = useState<string | null>(null);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [clientToDelete, setClientToDelete] = useState<{ id: string; name: string; email: string } | null>(null);
 
   const { data: clients, isLoading } = useQuery<any[]>({
     queryKey: ["/api/admin/clients"],
@@ -72,8 +60,6 @@ export default function AdminClients() {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/stats"] });
       toast({ title: "Client Deleted", description: "The client account has been permanently deleted." });
       setDeletingClientId(null);
-      setDeleteDialogOpen(false);
-      setClientToDelete(null);
     },
     onError: (error: any) => {
       toast({ 
@@ -82,8 +68,6 @@ export default function AdminClients() {
         variant: "destructive" 
       });
       setDeletingClientId(null);
-      setDeleteDialogOpen(false);
-      setClientToDelete(null);
     },
   });
 
@@ -166,12 +150,12 @@ export default function AdminClients() {
                           size="icon" 
                           data-testid={`button-delete-client-${client.id}`}
                           onClick={() => {
-                            setClientToDelete({
-                              id: client.id,
-                              name: `${client.first_name} ${client.last_name}`,
-                              email: client.email
-                            });
-                            setDeleteDialogOpen(true);
+                            const confirmed = window.confirm(
+                              `Are you sure you want to permanently delete ${client.first_name} ${client.last_name} (${client.email})?\n\nThis will delete all their data including tax intakes, uploaded documents, and messages. This action cannot be undone.`
+                            );
+                            if (confirmed) {
+                              handleConfirmDelete(client.id);
+                            }
                           }}
                         >
                           <Trash2 className="h-4 w-4 text-destructive" />
@@ -189,42 +173,6 @@ export default function AdminClients() {
           </Card>
         )}
       </div>
-
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Client Account</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to permanently delete the account for{" "}
-              <strong>{clientToDelete?.name}</strong> ({clientToDelete?.email})?
-              <br /><br />
-              This will delete all their data including tax intakes, uploaded documents, and messages. This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel data-testid="button-cancel-delete">Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                if (clientToDelete) {
-                  handleConfirmDelete(clientToDelete.id);
-                }
-              }}
-              disabled={deletingClientId !== null}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              data-testid="button-confirm-delete"
-            >
-              {deletingClientId !== null ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Deleting...
-                </>
-              ) : (
-                "Delete Client"
-              )}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </AdminLayout>
   );
 }
