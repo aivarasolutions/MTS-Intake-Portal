@@ -84,6 +84,7 @@ export default function AdminClients() {
   });
 
   const handleDeleteClick = (client: any) => {
+    console.log("Delete button clicked for client:", client);
     setDeleteDialog({ open: true, client });
   };
 
