@@ -3,6 +3,7 @@ import type { User, Session, InsertUser, InsertSession, SessionUser } from "../s
 import { promises as fs } from "fs";
 import path from "path";
 import crypto from "crypto";
+import { objectStorageClient } from "./replit_integrations/object_storage";
 
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
@@ -127,7 +128,7 @@ export class LocalFileStorage implements FileStorageProvider {
     return filepath;
   }
 
-  async uploadToIntake(file: Buffer, filename: string, intakeId: string): Promise<{ storedFilename: string; storageKey: string }> {
+  async uploadToIntake(file: Buffer, filename: string, intakeId: string, _mimeType?: string): Promise<{ storedFilename: string; storageKey: string }> {
     const targetDir = await ensureUploadDir(intakeId);
     const ext = path.extname(filename);
     const storedFilename = `${crypto.randomUUID()}${ext}`;
@@ -190,5 +191,132 @@ export class LocalFileStorage implements FileStorageProvider {
   }
 }
 
+export class CloudFileStorage implements FileStorageProvider {
+  private bucketName: string;
+  private privateDir: string;
+  private localFallback: LocalFileStorage;
+
+  constructor() {
+    const bucketId = process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID;
+    const privateDir = process.env.PRIVATE_OBJECT_DIR;
+    this.localFallback = new LocalFileStorage();
+    
+    if (!bucketId || !privateDir) {
+      console.warn("Object storage not configured, falling back to local storage");
+      this.bucketName = "";
+      this.privateDir = "";
+    } else {
+      const parts = privateDir.split("/").filter(p => p);
+      this.bucketName = parts[0] || "";
+      this.privateDir = parts.slice(1).join("/");
+    }
+  }
+
+  isConfigured(): boolean {
+    return !!this.bucketName;
+  }
+
+  private isLocalStorageKey(storageKey: string): boolean {
+    return storageKey.startsWith("uploads/") || (!storageKey.startsWith("/") && !storageKey.includes(this.bucketName));
+  }
+
+  async upload(file: Buffer, filename: string, mimeType: string): Promise<string> {
+    const bucket = objectStorageClient.bucket(this.bucketName);
+    const storedFilename = `${crypto.randomUUID()}_${filename.replace(/[^a-zA-Z0-9.-]/g, "_")}`;
+    const objectPath = `${this.privateDir}/files/${storedFilename}`;
+    const gcsFile = bucket.file(objectPath);
+    
+    await gcsFile.save(file, {
+      metadata: { contentType: mimeType },
+    });
+    
+    return `/${this.bucketName}/${objectPath}`;
+  }
+
+  async uploadToIntake(file: Buffer, filename: string, intakeId: string, mimeType: string): Promise<{ storedFilename: string; storageKey: string }> {
+    const bucket = objectStorageClient.bucket(this.bucketName);
+    const ext = path.extname(filename);
+    const storedFilename = `${crypto.randomUUID()}${ext}`;
+    const objectPath = `${this.privateDir}/intakes/${intakeId}/${storedFilename}`;
+    const storageKey = `/${this.bucketName}/${objectPath}`;
+    const gcsFile = bucket.file(objectPath);
+    
+    await gcsFile.save(file, {
+      metadata: { contentType: mimeType },
+    });
+    
+    return { storedFilename, storageKey };
+  }
+
+  async downloadByKey(storageKey: string): Promise<Buffer> {
+    if (this.isLocalStorageKey(storageKey)) {
+      return this.localFallback.downloadByKey(storageKey);
+    }
+    const { bucketName, objectName } = this.parseStorageKey(storageKey);
+    const bucket = objectStorageClient.bucket(bucketName);
+    const gcsFile = bucket.file(objectName);
+    const [contents] = await gcsFile.download();
+    return contents;
+  }
+
+  async deleteByKey(storageKey: string): Promise<void> {
+    if (this.isLocalStorageKey(storageKey)) {
+      return this.localFallback.deleteByKey(storageKey);
+    }
+    try {
+      const { bucketName, objectName } = this.parseStorageKey(storageKey);
+      const bucket = objectStorageClient.bucket(bucketName);
+      const gcsFile = bucket.file(objectName);
+      await gcsFile.delete();
+    } catch (error) {
+      console.error("Error deleting file from cloud storage:", error);
+    }
+  }
+
+  async existsByKey(storageKey: string): Promise<boolean> {
+    if (this.isLocalStorageKey(storageKey)) {
+      return this.localFallback.existsByKey(storageKey);
+    }
+    try {
+      const { bucketName, objectName } = this.parseStorageKey(storageKey);
+      const bucket = objectStorageClient.bucket(bucketName);
+      const gcsFile = bucket.file(objectName);
+      const [exists] = await gcsFile.exists();
+      return exists;
+    } catch {
+      return false;
+    }
+  }
+
+  async download(filepath: string): Promise<Buffer> {
+    return this.downloadByKey(filepath);
+  }
+
+  async delete(filepath: string): Promise<void> {
+    return this.deleteByKey(filepath);
+  }
+
+  async exists(filepath: string): Promise<boolean> {
+    return this.existsByKey(filepath);
+  }
+
+  getUrl(filepath: string): string {
+    return `/api/files/${encodeURIComponent(filepath)}`;
+  }
+
+  private parseStorageKey(storageKey: string): { bucketName: string; objectName: string } {
+    let key = storageKey;
+    if (key.startsWith("/")) {
+      key = key.slice(1);
+    }
+    const parts = key.split("/");
+    const bucketName = parts[0];
+    const objectName = parts.slice(1).join("/");
+    return { bucketName, objectName };
+  }
+}
+
 export const storage = new DatabaseStorage();
-export const fileStorage: FileStorageProvider = new LocalFileStorage();
+
+const cloudStorage = new CloudFileStorage();
+export const fileStorage: FileStorageProvider = cloudStorage.isConfigured() ? cloudStorage : new LocalFileStorage();

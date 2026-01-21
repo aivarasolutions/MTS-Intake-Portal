@@ -728,7 +728,8 @@ export async function registerRoutes(
       const { storedFilename, storageKey } = await (fileStorage as any).uploadToIntake(
         req.file.buffer,
         req.file.originalname,
-        intakeId
+        intakeId,
+        req.file.mimetype
       );
 
       const fileRecord = await prisma.files.create({
