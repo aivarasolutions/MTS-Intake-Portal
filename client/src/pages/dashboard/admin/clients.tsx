@@ -1,14 +1,26 @@
-import { Users, Eye, Search } from "lucide-react";
+import { useState } from "react";
+import { Users, Eye, Search, Trash2, Loader2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { AdminLayout } from "@/components/layouts/admin-layout";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { Loader2 } from "lucide-react";
 import { getInitials } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 function getStatusBadgeVariant(status: string): "default" | "warning" | "success" | "destructive" {
   switch (status) {
@@ -42,9 +54,44 @@ function getStatusLabel(status: string): string {
 }
 
 export default function AdminClients() {
+  const { toast } = useToast();
+  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; client: any | null }>({
+    open: false,
+    client: null,
+  });
+
   const { data: clients, isLoading } = useQuery<any[]>({
     queryKey: ["/api/admin/clients"],
   });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (clientId: string) => {
+      return apiRequest("DELETE", `/api/admin/clients/${clientId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/clients"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/stats"] });
+      toast({ title: "Client Deleted", description: "The client account has been permanently deleted." });
+      setDeleteDialog({ open: false, client: null });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Error", 
+        description: error.message || "Failed to delete client", 
+        variant: "destructive" 
+      });
+    },
+  });
+
+  const handleDeleteClick = (client: any) => {
+    setDeleteDialog({ open: true, client });
+  };
+
+  const confirmDelete = () => {
+    if (deleteDialog.client) {
+      deleteMutation.mutate(deleteDialog.client.id);
+    }
+  };
 
   return (
     <AdminLayout>
@@ -115,6 +162,14 @@ export default function AdminClients() {
                             </Button>
                           </Link>
                         )}
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          onClick={() => handleDeleteClick(client)}
+                          data-testid={`button-delete-client-${client.id}`}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
                       </div>
                     </div>
                   ))}
@@ -128,6 +183,38 @@ export default function AdminClients() {
           </Card>
         )}
       </div>
+
+      <AlertDialog open={deleteDialog.open} onOpenChange={(open) => !open && setDeleteDialog({ open: false, client: null })}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Client Account</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to permanently delete the account for{" "}
+              <strong>{deleteDialog.client?.first_name} {deleteDialog.client?.last_name}</strong> ({deleteDialog.client?.email})?
+              <br /><br />
+              This will delete all their data including tax intakes, uploaded documents, and messages. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              disabled={deleteMutation.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="button-confirm-delete"
+            >
+              {deleteMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete Client"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AdminLayout>
   );
 }

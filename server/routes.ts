@@ -1193,6 +1193,185 @@ export async function registerRoutes(
     }
   });
 
+  app.delete("/api/admin/clients/:clientId", requireAuth(["admin"]), async (req, res) => {
+    try {
+      const user = req.user!;
+      const { clientId } = req.params;
+
+      const client = await prisma.users.findUnique({
+        where: { id: clientId },
+        select: { id: true, email: true, first_name: true, last_name: true, role: true },
+      });
+
+      if (!client) {
+        return res.status(404).json({ error: "Client not found" });
+      }
+
+      if (client.role !== "client") {
+        return res.status(400).json({ error: "Can only delete client accounts" });
+      }
+
+      const clientIntakes = await prisma.intakes.findMany({
+        where: { user_id: clientId },
+        select: { id: true, files: { select: { storage_key: true } } },
+      });
+
+      for (const intake of clientIntakes) {
+        for (const file of intake.files) {
+          try {
+            await fileStorage.deleteByKey(file.storage_key);
+          } catch (err) {
+            console.warn(`Failed to delete file ${file.storage_key}:`, err);
+          }
+        }
+      }
+
+      await prisma.users.delete({
+        where: { id: clientId },
+      });
+
+      const { ip_address, user_agent } = getClientInfo(req);
+      await createAuditLog({
+        user_id: user.id,
+        action: "status_changed",
+        resource: "client",
+        resource_id: clientId,
+        result: "success",
+        details: { 
+          action_type: "client_deleted",
+          client_email: client.email, 
+          client_name: `${client.first_name} ${client.last_name}`,
+          intakes_deleted: clientIntakes.length,
+        },
+        ip_address,
+        user_agent,
+      });
+
+      return res.json({ success: true, message: "Client deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting client:", error);
+      return res.status(500).json({ error: "Failed to delete client" });
+    }
+  });
+
+  app.post("/api/intakes/:id/request-resubmission", requireAuth(["preparer", "admin"]), async (req, res) => {
+    try {
+      const user = req.user!;
+      const intakeId = req.params.id;
+      const { categories, reason } = req.body;
+
+      if (!categories || !Array.isArray(categories) || categories.length === 0) {
+        return res.status(400).json({ error: "Please specify document categories to request resubmission for" });
+      }
+
+      const intake = await prisma.intakes.findUnique({
+        where: { id: intakeId },
+        select: { id: true, user_id: true, status: true },
+      });
+
+      if (!intake) {
+        return res.status(404).json({ error: "Intake not found" });
+      }
+
+      const filesToDelete = await prisma.files.findMany({
+        where: { 
+          intake_id: intakeId,
+          file_category: { in: categories },
+        },
+        select: { id: true, storage_key: true, file_category: true, original_filename: true },
+      });
+
+      for (const file of filesToDelete) {
+        try {
+          await fileStorage.deleteByKey(file.storage_key);
+        } catch (err) {
+          console.warn(`Failed to delete file ${file.storage_key}:`, err);
+        }
+      }
+
+      await prisma.files.deleteMany({
+        where: { 
+          intake_id: intakeId,
+          file_category: { in: categories },
+        },
+      });
+
+      const categoryLabels: Record<string, string> = {
+        photo_id_front: "Photo ID (Front)",
+        photo_id_back: "Photo ID (Back)",
+        spouse_photo_id_front: "Spouse Photo ID (Front)",
+        spouse_photo_id_back: "Spouse Photo ID (Back)",
+        w2: "W-2",
+        "1099_int": "1099-INT",
+        "1099_div": "1099-DIV",
+        "1099_misc": "1099-MISC",
+        "1099_nec": "1099-NEC",
+        "1099_r": "1099-R",
+        "1098": "1098",
+        "1099_k": "1099-K",
+        other: "Other Documents",
+      };
+
+      await prisma.checklist_items.deleteMany({
+        where: {
+          intake_id: intakeId,
+          item_type: "missing_document",
+          field_name: { in: categories },
+          is_resolved: false,
+        },
+      });
+
+      const checklistItems = categories.map((category: string) => ({
+        intake_id: intakeId,
+        item_type: "missing_document",
+        field_name: category,
+        description: reason 
+          ? `Please re-upload ${categoryLabels[category] || category}: ${reason}`
+          : `Please re-upload ${categoryLabels[category] || category}`,
+        is_resolved: false,
+        created_by_user_id: user.id,
+      }));
+
+      await prisma.checklist_items.createMany({
+        data: checklistItems,
+      });
+
+      if (intake.status === "in_review" || intake.status === "ready_for_drake") {
+        await prisma.intakes.update({
+          where: { id: intakeId },
+          data: { status: "submitted" },
+        });
+      }
+
+      const { ip_address, user_agent } = getClientInfo(req);
+      await createAuditLog({
+        user_id: user.id,
+        action: "checklist_item_created",
+        resource: "intake",
+        resource_id: intakeId,
+        result: "success",
+        details: { 
+          action_type: "document_resubmission_request",
+          categories,
+          reason,
+          files_deleted: filesToDelete.length,
+        },
+        ip_address,
+        user_agent,
+      });
+
+      return res.json({ 
+        success: true, 
+        message: `Requested resubmission for ${categories.length} document categories`,
+        files_deleted: filesToDelete.length,
+        checklist_items_created: checklistItems.length,
+      });
+    } catch (error) {
+      console.error("Error requesting resubmission:", error);
+      return res.status(500).json({ error: "Failed to request document resubmission" });
+    }
+  });
+
   app.patch("/api/intakes/:id/filing-status", requireAuth(["client"]), async (req, res) => {
     try {
       const user = req.user!;

@@ -5,7 +5,7 @@ import {
   Loader2, ChevronLeft, FileText, Download, Eye, CheckCircle2, 
   User, Calendar, Mail, Phone, MapPin, Clock, FileCheck, AlertTriangle, 
   RefreshCw, Plus, Check, X, XCircle, ClipboardList, MessageSquare, Settings,
-  Package, FileArchive
+  Package, FileArchive, RotateCcw
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,10 +14,20 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { AdminLayout } from "@/components/layouts/admin-layout";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface ChecklistItem {
   id: string;
@@ -98,6 +108,9 @@ export default function AdminIntakeDetail() {
   const [showAddItem, setShowAddItem] = useState(false);
   const [newItemType, setNewItemType] = useState("clarification_needed");
   const [newItemDescription, setNewItemDescription] = useState("");
+  const [showResubmitDialog, setShowResubmitDialog] = useState(false);
+  const [resubmitCategories, setResubmitCategories] = useState<string[]>([]);
+  const [resubmitReason, setResubmitReason] = useState("");
 
   const { data: intake, isLoading, refetch: refetchIntake } = useQuery<any>({
     queryKey: ["/api/intakes", id],
@@ -203,6 +216,42 @@ export default function AdminIntakeDetail() {
       toast({ title: "Error", description: error.message || "Failed to request packet", variant: "destructive" });
     },
   });
+
+  const requestResubmissionMutation = useMutation({
+    mutationFn: async ({ categories, reason }: { categories: string[]; reason: string }) => {
+      return apiRequest("POST", `/api/intakes/${id}/request-resubmission`, { categories, reason });
+    },
+    onSuccess: (data: any) => {
+      refetchIntake();
+      refetchChecklist();
+      setShowResubmitDialog(false);
+      setResubmitCategories([]);
+      setResubmitReason("");
+      toast({ 
+        title: "Resubmission Requested", 
+        description: `Requested resubmission for ${data.checklist_items_created} document categories. Client will be notified.` 
+      });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to request resubmission", variant: "destructive" });
+    },
+  });
+
+  const handleResubmitSubmit = () => {
+    if (resubmitCategories.length === 0) {
+      toast({ title: "Error", description: "Please select at least one document category", variant: "destructive" });
+      return;
+    }
+    requestResubmissionMutation.mutate({ categories: resubmitCategories, reason: resubmitReason });
+  };
+
+  const toggleResubmitCategory = (category: string) => {
+    setResubmitCategories(prev => 
+      prev.includes(category) 
+        ? prev.filter(c => c !== category) 
+        : [...prev, category]
+    );
+  };
 
   const latestRequest = packetRequests?.[0];
   const isProcessing = latestRequest?.status === "pending" || latestRequest?.status === "processing";
@@ -353,13 +402,26 @@ export default function AdminIntakeDetail() {
 
             <Card className="lg:col-span-2">
               <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <FileText className="h-5 w-5" />
-                  Documents
-                </CardTitle>
-                <CardDescription>
-                  Review and manage client documents. Toggle the reviewed status for each file.
-                </CardDescription>
+                <div className="flex items-center justify-between gap-4 flex-wrap">
+                  <div>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <FileText className="h-5 w-5" />
+                      Documents
+                    </CardTitle>
+                    <CardDescription>
+                      Review and manage client documents. Toggle the reviewed status for each file.
+                    </CardDescription>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowResubmitDialog(true)}
+                    data-testid="button-request-resubmission"
+                  >
+                    <RotateCcw className="h-4 w-4 mr-1" />
+                    Request Resubmission
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent>
                 <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -771,6 +833,75 @@ export default function AdminIntakeDetail() {
           </Card>
         </div>
       </div>
+
+      <Dialog open={showResubmitDialog} onOpenChange={setShowResubmitDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Request Document Resubmission</DialogTitle>
+            <DialogDescription>
+              Select which document categories you need the client to re-upload. 
+              Existing documents in these categories will be removed.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-3">
+              <Label className="text-sm font-medium">Document Categories</Label>
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                {Object.entries(FILE_CATEGORY_LABELS).map(([key, label]) => (
+                  <div key={key} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`resubmit-${key}`}
+                      checked={resubmitCategories.includes(key)}
+                      onCheckedChange={() => toggleResubmitCategory(key)}
+                      data-testid={`checkbox-resubmit-${key}`}
+                    />
+                    <Label htmlFor={`resubmit-${key}`} className="text-sm font-normal cursor-pointer">
+                      {label}
+                    </Label>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="resubmit-reason" className="text-sm font-medium">
+                Reason (optional)
+              </Label>
+              <Textarea
+                id="resubmit-reason"
+                placeholder="e.g., Document was blurry, wrong year, etc."
+                value={resubmitReason}
+                onChange={(e) => setResubmitReason(e.target.value)}
+                className="resize-none"
+                rows={3}
+                data-testid="input-resubmit-reason"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setShowResubmitDialog(false)}
+              data-testid="button-cancel-resubmit"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleResubmitSubmit}
+              disabled={requestResubmissionMutation.isPending || resubmitCategories.length === 0}
+              data-testid="button-confirm-resubmit"
+            >
+              {requestResubmissionMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Requesting...
+                </>
+              ) : (
+                `Request Resubmission (${resubmitCategories.length})`
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AdminLayout>
   );
 }
