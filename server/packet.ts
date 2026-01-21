@@ -4,6 +4,7 @@ import archiver from "archiver";
 import { prisma } from "../lib/prisma";
 import { generateSummaryPDF } from "./pdf";
 import { createAuditLog } from "./audit";
+import { fileStorage } from "./storage";
 
 const EXPORTS_DIR = path.join(process.cwd(), "exports");
 
@@ -18,6 +19,7 @@ const FILE_CATEGORY_FOLDERS: Record<string, string> = {
   "1099_misc": "1099/1099_misc",
   "1099_nec": "1099/1099_nec",
   "1099_r": "1099/1099_r",
+  "1099_k": "1099/1099_k",
   "1098": "1098",
   other: "Other",
 };
@@ -88,13 +90,24 @@ export async function processPacketRequest(requestId: string): Promise<void> {
 
       archive.file(pdfPath, { name: "Summary.pdf" });
 
+      // Add all uploaded documents from cloud/local storage
       for (const file of intake.files) {
         const folder = FILE_CATEGORY_FOLDERS[file.file_category] || "Other";
         const safeName = sanitizeFilename(`${file.file_category}__${file.original_filename}`);
-        const filePath = path.join(process.cwd(), "uploads", file.storage_key);
         
-        if (fs.existsSync(filePath)) {
-          archive.file(filePath, { name: `${folder}/${safeName}` });
+        try {
+          // Check if file exists in storage (cloud or local)
+          const exists = await fileStorage.exists(file.storage_key);
+          if (exists) {
+            // Download file content from storage
+            const fileBuffer = await fileStorage.download(file.storage_key);
+            archive.append(fileBuffer, { name: `${folder}/${safeName}` });
+            console.log(`Added file to packet: ${safeName}`);
+          } else {
+            console.warn(`File not found in storage: ${file.storage_key}`);
+          }
+        } catch (err) {
+          console.error(`Error adding file to packet: ${file.storage_key}`, err);
         }
       }
 
