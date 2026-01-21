@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Link, useLocation } from "wouter";
-import { Eye, EyeOff, Loader2, FileText } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -71,11 +71,13 @@ export default function RegisterPage() {
       <div className="flex-1 flex items-center justify-center px-4 py-12 bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
         <div className="w-full max-w-md space-y-8">
           <div className="text-center">
-            <Link href="/" className="inline-flex items-center gap-2 mb-8">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary">
-                <FileText className="h-6 w-6 text-primary-foreground" />
-              </div>
-              <span className="text-xl font-semibold">MTS 1040</span>
+            <Link href="/" className="inline-block mb-8">
+              <img 
+                src="/logo.jpg" 
+                alt="MTS 1040" 
+                className="h-24 w-auto mx-auto"
+                data-testid="img-logo"
+              />
             </Link>
             <h1 className="text-2xl font-semibold tracking-tight">Create your account</h1>
             <p className="mt-2 text-sm text-muted-foreground">
