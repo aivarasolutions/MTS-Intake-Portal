@@ -81,6 +81,26 @@ export async function processPacketRequest(requestId: string): Promise<void> {
     const zipStream = fs.createWriteStream(zipPath);
     const archive = archiver("zip", { zlib: { level: 9 } });
 
+    // Pre-fetch all files from storage before creating the archive
+    const fileBuffers: { folder: string; safeName: string; buffer: Buffer }[] = [];
+    for (const file of intake.files) {
+      const folder = FILE_CATEGORY_FOLDERS[file.file_category] || "Other";
+      const safeName = sanitizeFilename(`${file.file_category}__${file.original_filename}`);
+      
+      try {
+        const exists = await fileStorage.exists(file.storage_key);
+        if (exists) {
+          const buffer = await fileStorage.download(file.storage_key);
+          fileBuffers.push({ folder, safeName, buffer });
+          console.log(`Fetched file for packet: ${safeName}`);
+        } else {
+          console.warn(`File not found in storage: ${file.storage_key}`);
+        }
+      } catch (err) {
+        console.error(`Error fetching file for packet: ${file.storage_key}`, err);
+      }
+    }
+
     await new Promise<void>((resolve, reject) => {
       zipStream.on("close", resolve);
       zipStream.on("error", reject);
@@ -88,27 +108,13 @@ export async function processPacketRequest(requestId: string): Promise<void> {
 
       archive.pipe(zipStream);
 
+      // Add summary PDF
       archive.file(pdfPath, { name: "Summary.pdf" });
 
-      // Add all uploaded documents from cloud/local storage
-      for (const file of intake.files) {
-        const folder = FILE_CATEGORY_FOLDERS[file.file_category] || "Other";
-        const safeName = sanitizeFilename(`${file.file_category}__${file.original_filename}`);
-        
-        try {
-          // Check if file exists in storage (cloud or local)
-          const exists = await fileStorage.exists(file.storage_key);
-          if (exists) {
-            // Download file content from storage
-            const fileBuffer = await fileStorage.download(file.storage_key);
-            archive.append(fileBuffer, { name: `${folder}/${safeName}` });
-            console.log(`Added file to packet: ${safeName}`);
-          } else {
-            console.warn(`File not found in storage: ${file.storage_key}`);
-          }
-        } catch (err) {
-          console.error(`Error adding file to packet: ${file.storage_key}`, err);
-        }
+      // Add all pre-fetched documents
+      for (const { folder, safeName, buffer } of fileBuffers) {
+        archive.append(buffer, { name: `${folder}/${safeName}` });
+        console.log(`Added file to packet: ${safeName}`);
       }
 
       archive.finalize();
