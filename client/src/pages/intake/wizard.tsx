@@ -75,11 +75,11 @@ const taxpayerSchema = z.object({
   taxpayer_middle_initial: z.string().max(1).optional().or(z.literal("")),
   taxpayer_last_name: z.string().min(1, "Last name is required").max(50),
   taxpayer_dob: z.string().min(1, "Date of birth is required"),
-  taxpayer_ssn: z.string().regex(/^\d{3}-?\d{2}-?\d{4}$/, "Enter a valid SSN (XXX-XX-XXXX)").optional().or(z.literal("")),
+  taxpayer_ssn: z.string().min(1, "Social Security Number is required").regex(/^\d{3}-?\d{2}-?\d{4}$/, "Enter a valid SSN (XXX-XX-XXXX)"),
   taxpayer_ip_pin: z.string().max(6).optional().or(z.literal("")),
   taxpayer_occupation: z.string().max(100).optional().or(z.literal("")),
-  taxpayer_phone: z.string().regex(/^(\+1)?[-.\s]?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}$/, "Enter a valid phone number").optional().or(z.literal("")),
-  taxpayer_email: z.string().email("Enter a valid email").optional().or(z.literal("")),
+  taxpayer_phone: z.string().min(1, "Phone number is required").regex(/^(\+1)?[-.\s]?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}$/, "Enter a valid phone number"),
+  taxpayer_email: z.string().min(1, "Email address is required").email("Enter a valid email"),
 });
 
 const spouseSchema = z.object({
@@ -258,7 +258,7 @@ function TaxpayerStep({ form, onSave, isSaving, isReadOnly = false }: { form: an
           name="taxpayer_ssn"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Social Security Number</FormLabel>
+              <FormLabel>Social Security Number *</FormLabel>
               <FormControl>
                 <Input {...field} data-testid="input-taxpayer-ssn" placeholder="XXX-XX-XXXX" />
               </FormControl>
@@ -303,7 +303,7 @@ function TaxpayerStep({ form, onSave, isSaving, isReadOnly = false }: { form: an
           name="taxpayer_phone"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Phone Number</FormLabel>
+              <FormLabel>Phone Number *</FormLabel>
               <FormControl>
                 <Input {...field} type="tel" data-testid="input-taxpayer-phone" placeholder="(555) 123-4567" />
               </FormControl>
@@ -316,7 +316,7 @@ function TaxpayerStep({ form, onSave, isSaving, isReadOnly = false }: { form: an
           name="taxpayer_email"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Email Address</FormLabel>
+              <FormLabel>Email Address *</FormLabel>
               <FormControl>
                 <Input {...field} type="email" data-testid="input-taxpayer-email" placeholder="john@example.com" />
               </FormControl>
@@ -1914,12 +1914,17 @@ export default function IntakeWizard() {
     saveTaxpayerInfoMutation.mutate(filteredValues);
   };
 
+  const shouldSkipSpouseStep = () => {
+    const filingStatus = intake?.filing_status?.filing_status;
+    return filingStatus === "single" || filingStatus === "head_of_household";
+  };
+
   const validateCurrentStep = async (): Promise<boolean> => {
     let fieldsToValidate: string[] = [];
     
     switch (currentStep) {
       case 1:
-        fieldsToValidate = ["taxpayer_first_name", "taxpayer_last_name", "taxpayer_dob"];
+        fieldsToValidate = ["taxpayer_first_name", "taxpayer_last_name", "taxpayer_dob", "taxpayer_ssn", "taxpayer_phone", "taxpayer_email"];
         break;
       case 2:
         return true;
@@ -1955,13 +1960,22 @@ export default function IntakeWizard() {
     setCompletedSteps((prev) => new Set([...prev, currentStep]));
 
     if (currentStep < STEPS.length) {
-      setCurrentStep(currentStep + 1);
+      let nextStep = currentStep + 1;
+      if (nextStep === 2 && shouldSkipSpouseStep()) {
+        nextStep = 3;
+        setCompletedSteps((prev) => new Set([...prev, 2]));
+      }
+      setCurrentStep(nextStep);
     }
   };
 
   const handlePrev = () => {
     if (currentStep > 1) {
-      setCurrentStep(currentStep - 1);
+      let prevStep = currentStep - 1;
+      if (prevStep === 2 && shouldSkipSpouseStep()) {
+        prevStep = 1;
+      }
+      setCurrentStep(prevStep);
     }
   };
 
@@ -2055,7 +2069,11 @@ export default function IntakeWizard() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <StepIndicator currentStep={currentStep} steps={STEPS} completedSteps={completedSteps} />
+              <StepIndicator 
+                currentStep={currentStep} 
+                steps={shouldSkipSpouseStep() ? STEPS.filter(s => s.id !== 2) : STEPS} 
+                completedSteps={completedSteps} 
+              />
 
               <Form {...form}>
                 <form>
@@ -2139,7 +2157,13 @@ export default function IntakeWizard() {
                     <Button
                       type="button"
                       variant="outline"
-                      onClick={handlePrev}
+                      onClick={isReadOnly ? () => {
+                        let prevStep = currentStep - 1;
+                        if (prevStep === 2 && shouldSkipSpouseStep()) {
+                          prevStep = 1;
+                        }
+                        setCurrentStep(prevStep);
+                      } : handlePrev}
                       disabled={currentStep === 1}
                       data-testid="button-prev-step"
                     >
@@ -2150,7 +2174,13 @@ export default function IntakeWizard() {
                     {currentStep < STEPS.length ? (
                       <Button 
                         type="button" 
-                        onClick={isReadOnly ? () => setCurrentStep(currentStep + 1) : handleNext} 
+                        onClick={isReadOnly ? () => {
+                          let nextStep = currentStep + 1;
+                          if (nextStep === 2 && shouldSkipSpouseStep()) {
+                            nextStep = 3;
+                          }
+                          setCurrentStep(nextStep);
+                        } : handleNext} 
                         data-testid="button-next-step"
                       >
                         {isReadOnly ? "View Next" : "Next"}
