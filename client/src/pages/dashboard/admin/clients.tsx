@@ -83,7 +83,9 @@ export default function AdminClients() {
     },
   });
 
-  const handleDeleteClick = (client: any) => {
+  const handleDeleteClick = (e: React.MouseEvent, client: any) => {
+    e.preventDefault();
+    e.stopPropagation();
     console.log("Delete button clicked for client:", client);
     setDeleteDialog({ open: true, client });
   };
@@ -167,7 +169,7 @@ export default function AdminClients() {
                         <Button 
                           variant="ghost" 
                           size="icon" 
-                          onClick={() => handleDeleteClick(client)}
+                          onClick={(e) => handleDeleteClick(e, client)}
                           data-testid={`button-delete-client-${client.id}`}
                         >
                           <Trash2 className="h-4 w-4 text-destructive" />
@@ -187,8 +189,8 @@ export default function AdminClients() {
       </div>
     </AdminLayout>
 
-      <AlertDialog open={deleteDialog.open} onOpenChange={(open: boolean) => !open && setDeleteDialog({ open: false, client: null })}>
-        <AlertDialogContent>
+      <AlertDialog open={deleteDialog.open} onOpenChange={(open: boolean) => setDeleteDialog({ open, client: open ? deleteDialog.client : null })}>
+        <AlertDialogContent className="max-h-[90vh] overflow-y-auto">
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Client Account</AlertDialogTitle>
             <AlertDialogDescription>
