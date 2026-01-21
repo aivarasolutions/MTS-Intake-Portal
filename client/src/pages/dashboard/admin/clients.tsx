@@ -149,7 +149,10 @@ export default function AdminClients() {
                           variant="ghost" 
                           size="icon" 
                           data-testid={`button-delete-client-${client.id}`}
-                          onClick={() => {
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            alert("Delete clicked for: " + client.email);
                             const confirmed = window.confirm(
                               `Are you sure you want to permanently delete ${client.first_name} ${client.last_name} (${client.email})?\n\nThis will delete all their data including tax intakes, uploaded documents, and messages. This action cannot be undone.`
                             );
