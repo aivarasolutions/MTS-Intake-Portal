@@ -1308,6 +1308,7 @@ const FILE_CATEGORIES = {
     { key: "1099_div", label: "1099-DIV (Dividends)", required: false },
     { key: "1099_misc", label: "1099-MISC (Miscellaneous)", required: false },
     { key: "1099_nec", label: "1099-NEC (Non-employee)", required: false },
+    { key: "1099_k", label: "1099-K (Third-Party Payment Processor)", required: false, description: "Upload Form 1099-K issued by payment processors such as Stripe, PayPal, Square, Airbnb, Venmo, Cash App, or credit card platforms. This form reports gross payment volume and is reconciled separately from contractor income." },
     { key: "1099_r", label: "1099-R (Retirement)", required: false },
   ],
   form_1098: [
@@ -1405,14 +1406,14 @@ function UploadDocumentsStep({
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
-  const renderCategoryFiles = (categories: { key: string; label: string; required: boolean }[]) => {
+  const renderCategoryFiles = (categories: { key: string; label: string; required: boolean; description?: string }[]) => {
     return (
       <div className="space-y-4">
-        {categories.map(({ key, label, required }) => {
+        {categories.map(({ key, label, required, description }) => {
           const categoryFiles = getFilesForCategory(key);
           return (
             <div key={key} className="border rounded-md p-4">
-              <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
                   <FileText className="h-5 w-5 text-muted-foreground" />
                   <span className="font-medium">{label}</span>
@@ -1436,6 +1437,9 @@ function UploadDocumentsStep({
                   </Button>
                 )}
               </div>
+              {description && (
+                <p className="text-sm text-muted-foreground mb-3">{description}</p>
+              )}
               
               {categoryFiles.length > 0 ? (
                 <div className="space-y-2">

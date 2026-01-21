@@ -19,6 +19,7 @@ MTS 1040 is a full-stack tax document intake portal for managing client tax docu
 - **Audit Logging**: Added comprehensive audit logging for login, logout, intake submission, status changes, packet generation, file upload/delete
 - **Protected API Routes**: Full intake and file management API with ownership enforcement
 - **TPINFO Page 1 Intake Wizard**: Multi-step wizard for clients with 4 sections (Personal Info, Spouse Info, Address, Residency), incremental persistence, progress indicators, and field validation
+- **1099-K Document Category**: Added new document upload category for 1099-K (Third-Party Payment Processor) forms from Stripe, PayPal, Square, Airbnb, Venmo, Cash App, etc.
 
 ## User Preferences
 

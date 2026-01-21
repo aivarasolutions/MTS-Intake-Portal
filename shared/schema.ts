@@ -64,6 +64,7 @@ export const fileCategoryEnum = [
   "1099_div",
   "1099_misc",
   "1099_nec",
+  "1099_k",
   "1099_r",
   "1098",
   "other",
