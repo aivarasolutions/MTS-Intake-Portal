@@ -95,6 +95,7 @@ export default function AdminClients() {
   };
 
   return (
+    <>
     <AdminLayout>
       <div className="space-y-6">
         <div>
@@ -184,8 +185,9 @@ export default function AdminClients() {
           </Card>
         )}
       </div>
+    </AdminLayout>
 
-      <AlertDialog open={deleteDialog.open} onOpenChange={(open) => !open && setDeleteDialog({ open: false, client: null })}>
+      <AlertDialog open={deleteDialog.open} onOpenChange={(open: boolean) => !open && setDeleteDialog({ open: false, client: null })}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Client Account</AlertDialogTitle>
@@ -216,6 +218,6 @@ export default function AdminClients() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </AdminLayout>
+    </>
   );
 }
