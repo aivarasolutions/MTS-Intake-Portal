@@ -10,6 +10,8 @@ import { Loader2 } from "lucide-react";
 import LoginPage from "@/pages/login";
 import RegisterPage from "@/pages/register";
 import ClientDashboard from "@/pages/dashboard/client";
+import ClientProfile from "@/pages/dashboard/client/profile";
+import ClientSettings from "@/pages/dashboard/client/settings";
 import AdminDashboard from "@/pages/dashboard/admin";
 import AdminClients from "@/pages/dashboard/admin/clients";
 import AdminDocuments from "@/pages/dashboard/admin/documents";
@@ -50,6 +52,18 @@ function Router() {
       <Route path="/dashboard/client">
         <ProtectedRoute allowedRoles={["client"]}>
           <ClientDashboard />
+        </ProtectedRoute>
+      </Route>
+      
+      <Route path="/dashboard/client/profile">
+        <ProtectedRoute allowedRoles={["client"]}>
+          <ClientProfile />
+        </ProtectedRoute>
+      </Route>
+      
+      <Route path="/dashboard/client/settings">
+        <ProtectedRoute allowedRoles={["client"]}>
+          <ClientSettings />
         </ProtectedRoute>
       </Route>
       

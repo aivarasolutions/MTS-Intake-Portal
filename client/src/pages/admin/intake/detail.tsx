@@ -323,7 +323,11 @@ export default function AdminIntakeDetail() {
                         <p className="text-sm font-medium">DOB</p>
                         <p className="text-sm text-muted-foreground">
                           {taxpayerInfo.taxpayer_dob 
-                            ? new Date(taxpayerInfo.taxpayer_dob).toLocaleDateString() 
+                            ? (() => {
+                                const dateStr = taxpayerInfo.taxpayer_dob.toString().split('T')[0];
+                                const [year, month, day] = dateStr.split('-');
+                                return `${parseInt(month)}/${parseInt(day)}/${year}`;
+                              })()
                             : "Not provided"}
                         </p>
                       </div>

@@ -24,6 +24,22 @@ export function UserMenu() {
     setLocation("/login");
   };
 
+  const handleProfile = () => {
+    if (user.role === "client") {
+      setLocation("/dashboard/client/profile");
+    } else {
+      setLocation("/dashboard/admin/settings");
+    }
+  };
+
+  const handleSettings = () => {
+    if (user.role === "client") {
+      setLocation("/dashboard/client/settings");
+    } else {
+      setLocation("/dashboard/admin/settings");
+    }
+  };
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -51,11 +67,11 @@ export function UserMenu() {
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem data-testid="menu-item-profile">
+        <DropdownMenuItem onClick={handleProfile} data-testid="menu-item-profile">
           <User className="mr-2 h-4 w-4" />
           Profile
         </DropdownMenuItem>
-        <DropdownMenuItem data-testid="menu-item-settings">
+        <DropdownMenuItem onClick={handleSettings} data-testid="menu-item-settings">
           <Settings className="mr-2 h-4 w-4" />
           Settings
         </DropdownMenuItem>
