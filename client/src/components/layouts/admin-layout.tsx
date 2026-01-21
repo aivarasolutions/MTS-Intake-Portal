@@ -70,12 +70,12 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       >
         <div className="flex h-16 items-center justify-between px-4 border-b border-sidebar-border">
           <Link href="/dashboard/admin" className="flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary shrink-0">
-              <FileText className="h-5 w-5 text-primary-foreground" />
-            </div>
-            {!collapsed && (
-              <span className="font-semibold text-sidebar-foreground">MTS 1040</span>
-            )}
+            <img 
+              src="/logo.jpg" 
+              alt="MTS 1040" 
+              className={cn("h-10 w-auto shrink-0", collapsed && "h-8")}
+              data-testid="img-logo"
+            />
           </Link>
           <Button
             variant="ghost"
