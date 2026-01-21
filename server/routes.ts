@@ -220,6 +220,12 @@ export async function registerRoutes(
             assigned_preparer: {
               select: { id: true, email: true, first_name: true, last_name: true },
             },
+            files: true,
+            taxpayer_info: true,
+            filing_status: true,
+            dependents: true,
+            childcare_providers: true,
+            estimated_payments: true,
           },
           orderBy: { created_at: "desc" },
         });
