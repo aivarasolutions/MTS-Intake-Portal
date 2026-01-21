@@ -835,7 +835,7 @@ export default function AdminIntakeDetail() {
       </div>
 
       <Dialog open={showResubmitDialog} onOpenChange={setShowResubmitDialog}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Request Document Resubmission</DialogTitle>
             <DialogDescription>
@@ -846,7 +846,7 @@ export default function AdminIntakeDetail() {
           <div className="space-y-4 py-4">
             <div className="space-y-3">
               <Label className="text-sm font-medium">Document Categories</Label>
-              <div className="space-y-2 max-h-48 overflow-y-auto">
+              <div className="space-y-2 max-h-40 overflow-y-auto border rounded-md p-2">
                 {Object.entries(FILE_CATEGORY_LABELS).map(([key, label]) => (
                   <div key={key} className="flex items-center space-x-2">
                     <Checkbox
