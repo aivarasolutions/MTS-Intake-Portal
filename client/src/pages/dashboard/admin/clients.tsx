@@ -162,6 +162,7 @@ export default function AdminClients() {
                               variant="ghost" 
                               size="icon" 
                               data-testid={`button-delete-client-${client.id}`}
+                              onClick={() => console.log("Delete button clicked for:", client.email)}
                             >
                               <Trash2 className="h-4 w-4 text-destructive" />
                             </Button>
