@@ -20,6 +20,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
 function getStatusBadgeVariant(status: string): "default" | "warning" | "success" | "destructive" {
@@ -55,10 +56,7 @@ function getStatusLabel(status: string): string {
 
 export default function AdminClients() {
   const { toast } = useToast();
-  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; client: any | null }>({
-    open: false,
-    client: null,
-  });
+  const [deletingClientId, setDeletingClientId] = useState<string | null>(null);
 
   const { data: clients, isLoading } = useQuery<any[]>({
     queryKey: ["/api/admin/clients"],
@@ -72,7 +70,7 @@ export default function AdminClients() {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/clients"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/stats"] });
       toast({ title: "Client Deleted", description: "The client account has been permanently deleted." });
-      setDeleteDialog({ open: false, client: null });
+      setDeletingClientId(null);
     },
     onError: (error: any) => {
       toast({ 
@@ -80,24 +78,16 @@ export default function AdminClients() {
         description: error.message || "Failed to delete client", 
         variant: "destructive" 
       });
+      setDeletingClientId(null);
     },
   });
 
-  const handleDeleteClick = (e: React.MouseEvent, client: any) => {
-    e.preventDefault();
-    e.stopPropagation();
-    console.log("Delete button clicked for client:", client);
-    setDeleteDialog({ open: true, client });
-  };
-
-  const confirmDelete = () => {
-    if (deleteDialog.client) {
-      deleteMutation.mutate(deleteDialog.client.id);
-    }
+  const handleConfirmDelete = (clientId: string) => {
+    setDeletingClientId(clientId);
+    deleteMutation.mutate(clientId);
   };
 
   return (
-    <>
     <AdminLayout>
       <div className="space-y-6">
         <div>
@@ -151,7 +141,7 @@ export default function AdminClients() {
                       <div className="flex items-center gap-4">
                         {client.intakes && client.intakes.length > 0 && (
                           <div className="text-right">
-                            <Badge variant={getStatusBadgeVariant(client.intakes[0].status)} size="sm">
+                            <Badge variant={getStatusBadgeVariant(client.intakes[0].status)}>
                               {getStatusLabel(client.intakes[0].status)}
                             </Badge>
                             <p className="text-xs text-muted-foreground mt-1">
@@ -166,14 +156,46 @@ export default function AdminClients() {
                             </Button>
                           </Link>
                         )}
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          onClick={(e) => handleDeleteClick(e, client)}
-                          data-testid={`button-delete-client-${client.id}`}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              data-testid={`button-delete-client-${client.id}`}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Delete Client Account</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Are you sure you want to permanently delete the account for{" "}
+                                <strong>{client.first_name} {client.last_name}</strong> ({client.email})?
+                                <br /><br />
+                                This will delete all their data including tax intakes, uploaded documents, and messages. This action cannot be undone.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel data-testid="button-cancel-delete">Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => handleConfirmDelete(client.id)}
+                                disabled={deletingClientId === client.id}
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                data-testid="button-confirm-delete"
+                              >
+                                {deletingClientId === client.id ? (
+                                  <>
+                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                    Deleting...
+                                  </>
+                                ) : (
+                                  "Delete Client"
+                                )}
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       </div>
                     </div>
                   ))}
@@ -188,38 +210,5 @@ export default function AdminClients() {
         )}
       </div>
     </AdminLayout>
-
-      <AlertDialog open={deleteDialog.open} onOpenChange={(open: boolean) => setDeleteDialog({ open, client: open ? deleteDialog.client : null })}>
-        <AlertDialogContent className="max-h-[90vh] overflow-y-auto">
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Client Account</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to permanently delete the account for{" "}
-              <strong>{deleteDialog.client?.first_name} {deleteDialog.client?.last_name}</strong> ({deleteDialog.client?.email})?
-              <br /><br />
-              This will delete all their data including tax intakes, uploaded documents, and messages. This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel data-testid="button-cancel-delete">Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={confirmDelete}
-              disabled={deleteMutation.isPending}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              data-testid="button-confirm-delete"
-            >
-              {deleteMutation.isPending ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Deleting...
-                </>
-              ) : (
-                "Delete Client"
-              )}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </>
   );
 }
