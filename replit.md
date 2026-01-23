@@ -22,6 +22,11 @@ MTS 1040 is a full-stack tax document intake portal for managing client tax docu
 - **1099-K Document Category**: Added new document upload category for 1099-K (Third-Party Payment Processor) forms from Stripe, PayPal, Square, Airbnb, Venmo, Cash App, etc.
 - **Admin Delete Client**: Admin can delete clients from the Clients page with confirmation dialog. Deletes user and all related data (intakes, files, checklist items) via Prisma cascade. Also cleans up files from cloud storage.
 - **Request Document Resubmission**: Preparers and admins can request clients to re-upload specific document categories from the intake detail page. Deletes existing files in selected categories and creates checklist items for the client. Automatically deduplicates checklist items.
+- **Full SSN Display**: SSN now displays in full (not masked) on Page 1 of the intake wizard and in generated PDF packets. API returns decrypted SSN to authorized users (client for own data, admin/preparer for all).
+- **Improved Intake Wizard Flow**: Page 8 "Next" button now says "Review Intake", Page 9 submit button says "Click Here to Finalize Tax Intake", redirects to dashboard after successful submission.
+- **Client Dashboard Updates**: Progress shows 100% after submission (was 90%), button text changes from "Start Submission" to "View Submission" after submitting.
+- **State Dropdown Scrolling**: State dropdown on Page 3 now has max-height for proper scrollability.
+- **Document Upload Instructions**: Page 8 (Documents) includes alert explaining required documents (at least one tax form + ID front/back).
 
 ## User Preferences
 
