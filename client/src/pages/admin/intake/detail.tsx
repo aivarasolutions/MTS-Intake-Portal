@@ -77,6 +77,7 @@ const FILE_CATEGORY_LABELS: Record<string, string> = {
   "1099_misc": "1099-MISC",
   "1099_nec": "1099-NEC",
   "1099_r": "1099-R",
+  "1099_k": "1099-K",
   "1098": "1098",
   other: "Other",
 };
@@ -84,7 +85,7 @@ const FILE_CATEGORY_LABELS: Record<string, string> = {
 const FILE_CATEGORY_GROUPS = [
   { key: "identification", label: "Identification", categories: ["photo_id_front", "photo_id_back", "spouse_photo_id_front", "spouse_photo_id_back"] },
   { key: "w2", label: "W-2 Forms", categories: ["w2"] },
-  { key: "1099s", label: "1099 Forms", categories: ["1099_int", "1099_div", "1099_misc", "1099_nec", "1099_r"] },
+  { key: "1099s", label: "1099 Forms", categories: ["1099_int", "1099_div", "1099_misc", "1099_nec", "1099_r", "1099_k"] },
   { key: "1098", label: "1098 Forms", categories: ["1098"] },
   { key: "other", label: "Other Documents", categories: ["other"] },
 ];
