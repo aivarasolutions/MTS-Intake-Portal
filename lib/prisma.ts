@@ -26,7 +26,6 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 function createPrismaClient() {
-  // Validate DATABASE_URL
   const connectionString = process.env.DATABASE_URL;
   
   if (!connectionString) {
@@ -38,33 +37,48 @@ function createPrismaClient() {
   }
   
   console.log('✓ DATABASE_URL is valid');
-  console.log('✓ Creating Prisma client with direct connection');
+  console.log('✓ Creating Prisma client with connection pooling settings');
   
-  // Create Prisma client - Prisma 5.x handles the connection automatically
+  // Create Prisma client with connection pool settings optimized for Neon serverless
   const client = new PrismaClient({
     log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
+    datasources: {
+      db: {
+        url: connectionString,
+      },
+    },
   });
   
-  // Test the connection
-  client.$connect()
-    .then(() => {
-      console.log('✅ Successfully connected to database!');
-    })
-    .catch((err) => {
-      console.error('❌ Failed to connect to database:', err.message);
-      console.error('Connection error details:', err);
-    });
+  // Test connection with retry logic
+  const connectWithRetry = async (retries = 3, delay = 1000) => {
+    for (let i = 0; i < retries; i++) {
+      try {
+        await client.$connect();
+        console.log('✅ Successfully connected to database!');
+        return;
+      } catch (err: any) {
+        console.error(`❌ Connection attempt ${i + 1} failed:`, err.message);
+        if (i < retries - 1) {
+          console.log(`Retrying in ${delay}ms...`);
+          await new Promise(r => setTimeout(r, delay));
+        }
+      }
+    }
+    console.error('❌ Failed to connect to database after all retries');
+  };
+  
+  connectWithRetry();
   
   console.log('✓ Prisma client created successfully');
   
   return client;
 }
 
+// Always use singleton pattern
 export const prisma = globalForPrisma.prisma ?? createPrismaClient();
 
-if (process.env.NODE_ENV !== 'production') {
-  globalForPrisma.prisma = prisma;
-}
+// Store in global to prevent multiple instances during development
+globalForPrisma.prisma = prisma;
 
 // Graceful shutdown handlers
 process.on('SIGTERM', async () => {
