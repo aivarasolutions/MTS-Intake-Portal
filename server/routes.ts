@@ -1081,6 +1081,13 @@ export async function registerRoutes(
 
       const request = await prisma.preparer_packet_requests.findUnique({
         where: { id: requestId },
+        include: {
+          intake: {
+            include: {
+              taxpayer_info: true,
+            },
+          },
+        },
       });
 
       if (!request) {
@@ -1108,10 +1115,76 @@ export async function registerRoutes(
         ...getClientInfo(req),
       });
 
-      res.download(filePath, filename);
+      const taxpayerInfo = request.intake?.taxpayer_info;
+      const firstName = taxpayerInfo?.taxpayer_first_name || "Unknown";
+      const lastName = taxpayerInfo?.taxpayer_last_name || "Client";
+      const taxYear = request.intake?.tax_year || new Date().getFullYear();
+      const ext = filename === "Summary.pdf" ? "pdf" : "zip";
+      const downloadFilename = `${firstName}_${lastName}_${taxYear}_${filename === "Summary.pdf" ? "Summary" : "Packet"}.${ext}`;
+
+      res.download(filePath, downloadFilename);
     } catch (error) {
       console.error("Error downloading packet file:", error);
       return res.status(500).json({ error: "Failed to download file" });
+    }
+  });
+
+  app.get("/api/intakes/:id/download-all-files", requireAuth(["preparer", "admin"]), async (req, res) => {
+    try {
+      const user = req.user!;
+      const intakeId = req.params.id;
+
+      const intake = await prisma.intakes.findUnique({
+        where: { id: intakeId },
+        include: {
+          taxpayer_info: true,
+          files: true,
+        },
+      });
+
+      if (!intake) {
+        return res.status(404).json({ error: "Intake not found" });
+      }
+
+      if (!intake.files || intake.files.length === 0) {
+        return res.status(400).json({ error: "No files to download" });
+      }
+
+      const archiver = (await import("archiver")).default;
+      const firstName = intake.taxpayer_info?.taxpayer_first_name || "Unknown";
+      const lastName = intake.taxpayer_info?.taxpayer_last_name || "Client";
+      const zipFilename = `${firstName}_${lastName}_${intake.tax_year}_Documents.zip`;
+
+      res.setHeader("Content-Type", "application/zip");
+      res.setHeader("Content-Disposition", `attachment; filename="${zipFilename}"`);
+
+      const archive = archiver("zip", { zlib: { level: 9 } });
+      archive.pipe(res);
+
+      for (const file of intake.files) {
+        if (file.storage_key) {
+          const fileData = await fileStorage.getFile(file.storage_key);
+          if (fileData) {
+            const categoryLabel = file.file_category?.replace(/_/g, "-") || "other";
+            const filename = file.original_filename || file.file_name || "document";
+            archive.append(fileData, { name: `${categoryLabel}/${filename}` });
+          }
+        }
+      }
+
+      await createAuditLog({
+        user_id: user.id,
+        action: "file_download",
+        resource: "intake",
+        resource_id: intakeId,
+        details: { download_type: "all_files", file_count: intake.files.length },
+        ...getClientInfo(req),
+      });
+
+      await archive.finalize();
+    } catch (error) {
+      console.error("Error downloading all files:", error);
+      return res.status(500).json({ error: "Failed to download files" });
     }
   });
 
