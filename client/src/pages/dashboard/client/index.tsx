@@ -90,6 +90,14 @@ export default function ClientDashboard() {
 
   const calculateProgress = (intake: any): number => {
     if (!intake) return 0;
+    
+    // If submitted, show 100% complete
+    if (intake.status === "submitted" || intake.status === "in_review" || 
+        intake.status === "ready_for_drake" || intake.status === "filed" || 
+        intake.status === "accepted") {
+      return 100;
+    }
+    
     let progress = 10;
     
     if (intake.taxpayer_info) {
@@ -104,11 +112,8 @@ export default function ClientDashboard() {
     
     if (intake.filing_status) progress += 10;
     if (intake.files?.length > 0) progress += 10;
-    if (intake.status === "submitted") progress = Math.max(progress, 70);
-    if (intake.status === "in_review") progress = Math.max(progress, 80);
-    if (intake.status === "filed" || intake.status === "accepted") progress = 100;
     
-    return Math.min(progress, 100);
+    return Math.min(progress, 90);
   };
 
   const intakeProgress = calculateProgress(currentIntake);
@@ -168,7 +173,7 @@ export default function ClientDashboard() {
                     data-testid="button-continue-intake"
                   >
                     {createIntakeMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    {currentIntake?.status !== "draft" ? "View Submission" : currentIntake ? "Continue" : "Start Intake"}
+                    {currentIntake?.status !== "draft" ? "View Submission" : currentIntake ? "Continue" : "Start Submission"}
                   </Button>
                 </div>
               </div>

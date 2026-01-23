@@ -577,7 +577,7 @@ function AddressStep({ form, onSave, isSaving, isReadOnly = false }: { form: any
                     <SelectValue placeholder="Select state" />
                   </SelectTrigger>
                 </FormControl>
-                <SelectContent>
+                <SelectContent className="max-h-[300px] overflow-y-auto">
                   {US_STATES.map((state) => (
                     <SelectItem key={state.value} value={state.value}>
                       {state.label}
@@ -1542,6 +1542,13 @@ function UploadDocumentsStep({
         IDs: max 10MB per file. Tax documents: max 25MB per file.
       </p>
 
+      <Alert className="border-primary/50 bg-primary/5">
+        <AlertTriangle className="h-4 w-4 text-primary" />
+        <AlertDescription className="text-sm">
+          <strong>Required documents:</strong> Upload at least one tax form (W-2, 1099, 1098, or other tax document) and both the front and back of your Photo ID to continue.
+        </AlertDescription>
+      </Alert>
+
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="flex flex-wrap h-auto gap-1">
           {tabsToShow.map((tab) => (
@@ -1737,7 +1744,7 @@ function ReviewSubmitStep({
       )}
 
       {!isAlreadySubmitted && (
-        <div className="pt-6 border-t">
+        <div className="pt-6 border-t space-y-4">
           <Button
             onClick={() => submitMutation.mutate()}
             disabled={!validation?.valid || submitMutation.isPending}
@@ -1753,15 +1760,15 @@ function ReviewSubmitStep({
             ) : (
               <>
                 <Send className="mr-2 h-4 w-4" />
-                Submit Tax Intake for Review
+                Click Here to Finalize Tax Intake
               </>
             )}
           </Button>
-          {!validation?.valid && (
-            <p className="text-sm text-muted-foreground text-center mt-2">
-              Complete all required items above to enable submission.
-            </p>
-          )}
+          <p className="text-sm text-muted-foreground text-center">
+            {!validation?.valid 
+              ? "Complete all required items above to enable submission."
+              : "Your intake will be submitted for preparer review."}
+          </p>
         </div>
       )}
 
@@ -1866,8 +1873,8 @@ export default function IntakeWizard() {
         taxpayer_last_name: taxpayerInfo.taxpayer_last_name || "",
         taxpayer_suffix: taxpayerInfo.taxpayer_suffix || "",
         taxpayer_dob: dateToString(taxpayerInfo.taxpayer_dob),
-        taxpayer_ssn: "",
-        taxpayer_ip_pin: "",
+        taxpayer_ssn: taxpayerInfo.taxpayer_ssn || "",
+        taxpayer_ip_pin: taxpayerInfo.taxpayer_ip_pin || "",
         taxpayer_occupation: taxpayerInfo.taxpayer_occupation || "",
         taxpayer_phone: taxpayerInfo.taxpayer_phone || "",
         taxpayer_email: taxpayerInfo.taxpayer_email || "",
@@ -1875,8 +1882,8 @@ export default function IntakeWizard() {
         spouse_middle_initial: taxpayerInfo.spouse_middle_initial || "",
         spouse_last_name: taxpayerInfo.spouse_last_name || "",
         spouse_dob: dateToString(taxpayerInfo.spouse_dob),
-        spouse_ssn: "",
-        spouse_ip_pin: "",
+        spouse_ssn: taxpayerInfo.spouse_ssn || "",
+        spouse_ip_pin: taxpayerInfo.spouse_ip_pin || "",
         spouse_occupation: taxpayerInfo.spouse_occupation || "",
         spouse_phone: taxpayerInfo.spouse_phone || "",
         spouse_email: taxpayerInfo.spouse_email || "",
@@ -2219,7 +2226,7 @@ export default function IntakeWizard() {
                         } : handleNext} 
                         data-testid="button-next-step"
                       >
-                        {isReadOnly ? "View Next" : "Next"}
+                        {isReadOnly ? "View Next" : currentStep === 8 ? "Review Intake" : "Next"}
                         <ChevronRight className="ml-2 h-4 w-4" />
                       </Button>
                     ) : isReadOnly ? (
@@ -2227,12 +2234,7 @@ export default function IntakeWizard() {
                         <Check className="mr-2 h-4 w-4" />
                         Back to Dashboard
                       </Button>
-                    ) : (
-                      <Button type="button" onClick={handleComplete} data-testid="button-complete">
-                        <Check className="mr-2 h-4 w-4" />
-                        Complete Intake
-                      </Button>
-                    )}
+                    ) : null}
                   </div>
                 </form>
               </Form>

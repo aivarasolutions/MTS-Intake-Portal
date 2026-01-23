@@ -5,8 +5,8 @@ export async function generateSummaryPDF(intake: any, stream: NodeJS.WritableStr
   const doc = new PDFDocument({ margin: 50 });
   doc.pipe(stream);
 
-  // Helper to mask sensitive data
-  const maskSSN = (val?: string) => val ? `XXX-XX-${val.slice(-4)}` : "Not provided";
+  // Helper to format SSN (show full SSN for preparer use)
+  const formatSSN = (val?: string) => val || "Not provided";
   const maskAccount = (val?: string) => val ? `****${val.slice(-4)}` : "Not provided";
 
   // Header
@@ -27,7 +27,7 @@ export async function generateSummaryPDF(intake: any, stream: NodeJS.WritableStr
   
   let ssn = "Not provided";
   if (tp.taxpayer_ssn_encrypted) {
-    try { ssn = maskSSN(decryptFromBytea(tp.taxpayer_ssn_encrypted)); } catch {}
+    try { ssn = formatSSN(decryptFromBytea(tp.taxpayer_ssn_encrypted)); } catch {}
   }
   doc.text(`SSN: ${ssn}`);
   doc.moveDown();
@@ -37,7 +37,7 @@ export async function generateSummaryPDF(intake: any, stream: NodeJS.WritableStr
     doc.fontSize(12).text(`Spouse: ${tp.spouse_first_name || ""} ${tp.spouse_last_name || ""}`);
     let s_ssn = "Not provided";
     if (tp.spouse_ssn_encrypted) {
-      try { s_ssn = maskSSN(decryptFromBytea(tp.spouse_ssn_encrypted)); } catch {}
+      try { s_ssn = formatSSN(decryptFromBytea(tp.spouse_ssn_encrypted)); } catch {}
     }
     doc.text(`SSN: ${s_ssn}`);
     doc.moveDown();
@@ -55,7 +55,7 @@ export async function generateSummaryPDF(intake: any, stream: NodeJS.WritableStr
     intake.dependents.forEach((d: any) => {
       let d_ssn = "Not provided";
       if (d.ssn_encrypted) {
-        try { d_ssn = maskSSN(decryptFromBytea(d.ssn_encrypted)); } catch {}
+        try { d_ssn = formatSSN(decryptFromBytea(d.ssn_encrypted)); } catch {}
       }
       doc.fontSize(12).text(`${d.first_name} ${d.last_name} (${d.relationship}) - SSN: ${d_ssn}`);
     });

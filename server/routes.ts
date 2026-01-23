@@ -1515,16 +1515,40 @@ export async function registerRoutes(
         return res.json(null);
       }
 
+      const { decryptFromBytea } = await import("../lib/crypto");
+      
+      let taxpayer_ssn = null;
+      let taxpayer_ip_pin = null;
+      let spouse_ssn = null;
+      let spouse_ip_pin = null;
+      
+      try {
+        if (taxpayerInfo.taxpayer_ssn_encrypted) {
+          taxpayer_ssn = decryptFromBytea(taxpayerInfo.taxpayer_ssn_encrypted);
+        }
+        if (taxpayerInfo.taxpayer_ip_pin_encrypted) {
+          taxpayer_ip_pin = decryptFromBytea(taxpayerInfo.taxpayer_ip_pin_encrypted);
+        }
+        if (taxpayerInfo.spouse_ssn_encrypted) {
+          spouse_ssn = decryptFromBytea(taxpayerInfo.spouse_ssn_encrypted);
+        }
+        if (taxpayerInfo.spouse_ip_pin_encrypted) {
+          spouse_ip_pin = decryptFromBytea(taxpayerInfo.spouse_ip_pin_encrypted);
+        }
+      } catch (e) {
+        console.error("Error decrypting sensitive data:", e);
+      }
+
       const result = {
         ...taxpayerInfo,
         taxpayer_ssn_encrypted: undefined,
         taxpayer_ip_pin_encrypted: undefined,
         spouse_ssn_encrypted: undefined,
         spouse_ip_pin_encrypted: undefined,
-        taxpayer_ssn_last4: taxpayerInfo.taxpayer_ssn_encrypted ? "****" : null,
-        spouse_ssn_last4: taxpayerInfo.spouse_ssn_encrypted ? "****" : null,
-        has_taxpayer_ip_pin: !!taxpayerInfo.taxpayer_ip_pin_encrypted,
-        has_spouse_ip_pin: !!taxpayerInfo.spouse_ip_pin_encrypted,
+        taxpayer_ssn,
+        taxpayer_ip_pin,
+        spouse_ssn,
+        spouse_ip_pin,
       };
 
       return res.json(result);
