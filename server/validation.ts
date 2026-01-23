@@ -264,13 +264,13 @@ export async function validateIntake(intakeId: string): Promise<ValidationResult
   }
 
   const hasTaxDoc = files.some(f => 
-    ["w2", "1099_int", "1099_div", "1099_misc", "1099_nec", "1099_r", "1098", "other"].includes(f.file_category)
+    ["w2", "1099_int", "1099_div", "1099_misc", "1099_nec", "1099_r", "1099_k", "1098", "other"].includes(f.file_category)
   );
   
   if (!hasTaxDoc) {
     missingDocs.push({ 
       field: "tax_documents", 
-      description: "At least one tax document (W-2, 1099, 1098, or other) is required", 
+      description: "At least one tax document (W-2, 1099, 1099-K, 1098, or other) is required", 
       section: "Tax Documents" 
     });
   }
